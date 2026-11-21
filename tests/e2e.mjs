@@ -25,6 +25,7 @@ const WORKER_SPY = `(() => {
   };
 })();`;
 const SCALE_TIMEOUTS = `(() => { const st = window.setTimeout.bind(window); window.setTimeout = (f, ms, ...a) => st(f, ms >= 100000 ? ms / 100 : ms, ...a); })();`;
+const SCALE_FETCH = `(() => { const st = window.setTimeout.bind(window); window.setTimeout = (f, ms, ...a) => st(f, ms === 30000 ? 400 : ms, ...a); })();`;
 const CORES = n => `Object.defineProperty(navigator, 'hardwareConcurrency', { get: () => ${n} });`;
 
 let server, browser;
@@ -324,6 +325,58 @@ await test('Lichess link: PGN is fetched, reviewed, and uses the Stockfish 19 en
   eq((await workers()).length, 1, 'worker count');
   ok((await page.textContent('#players')).includes('Alice'), 'players header shown');
   clean(problems, ['lichess.org']);
+  await ctx.close();
+});
+
+const CORS = { 'access-control-allow-origin': '*' };
+
+await test('Lichess not answering: shows what it is waiting on, then a clear error (no endless "Finding your game")', async () => {
+  const { page, workers, ctx } = await newPage({
+    init: [SCALE_FETCH],
+    route: p => p.route('https://lichess.org/game/export/**', () => { /* never answers */ }),
+  });
+  await page.evaluate(() => { document.querySelector('details').open = true; });
+  await page.fill('#link', 'https://lichess.org/abcd1234');
+  await page.click('#go');
+  await page.waitForFunction(() => /Asking Lichess/.test(document.getElementById('status').textContent), null, { timeout: 5000 });
+  await page.waitForFunction(() => /^⚠/.test(document.getElementById('status').textContent), null, { timeout: 10000 });
+  eq(await page.textContent('#status'), '⚠ lichess.org did not answer in time. You can paste the PGN under Options instead.', 'status');
+  ok(await page.isEnabled('#go'), 'button re-enabled');
+  eq((await workers()).length, 0, 'no engine was started for a game that could not be fetched');
+  await ctx.close();
+});
+
+await test('Chess.com link: archive lookup finds the game; progress text names each step', async () => {
+  const { page, problems, ctx } = await newPage({
+    route: async p => {
+      await p.route('https://www.chess.com/callback/**', r => r.fulfill({ status: 403, headers: CORS, body: 'blocked' }));
+      await p.route('https://api.chess.com/pub/player/**', r => r.fulfill({ status: 200, headers: CORS, contentType: 'application/json',
+        body: JSON.stringify({ games: [{ url: 'https://www.chess.com/game/live/123456789', pgn: SCHOLAR }] }) }));
+    },
+  });
+  await page.evaluate(() => { document.querySelector('details').open = true; });
+  await page.fill('#user', 'Bob');
+  const seen = new Set();
+  await page.exposeFunction('__seen', t => seen.add(t));
+  await page.evaluate(() => new MutationObserver(() => window.__seen(document.getElementById('status').textContent)).observe(document.getElementById('status'), { childList: true, characterData: true, subtree: true }));
+  eq(await review(page, { link: 'https://www.chess.com/game/live/123456789', depth: 12 }), 'Done.', 'status');
+  ok([...seen].some(t => /Searching bob’s Chess.com games/.test(t)), 'archive step shown: ' + [...seen].join(' | '));
+  ok((await page.textContent('#players')).includes('Alice'), 'game was reviewed');
+  clean(problems, ['callback/live', '403 (Forbidden)']); // the blocked callback is injected on purpose
+  await ctx.close();
+});
+
+await test('Chess.com not answering: clear timeout message instead of searching forever', async () => {
+  const { page, ctx } = await newPage({
+    init: [SCALE_FETCH],
+    route: async p => {
+      await p.route('https://www.chess.com/callback/**', r => r.fulfill({ status: 403, headers: CORS, body: 'blocked' }));
+      await p.route('https://api.chess.com/pub/player/**', () => { /* never answers */ });
+    },
+  });
+  await page.evaluate(() => { document.querySelector('details').open = true; });
+  await page.fill('#user', 'bob');
+  eq(await review(page, { link: 'https://www.chess.com/game/live/123456789' }), '⚠ api.chess.com did not answer in time. You can paste the PGN under Options instead.', 'status');
   await ctx.close();
 });
 
