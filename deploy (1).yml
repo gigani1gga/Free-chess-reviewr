@@ -1,0 +1,123 @@
+name: Unzip, organize and deploy
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+concurrency:
+  group: deploy
+  cancel-in-progress: true
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # GITHUB_TOKEN is not allowed to change workflow files. To let a zip replace this file,
+          # add a personal access token with "repo" + "workflow" scope as the secret WORKFLOW_PAT.
+          token: ${{ secrets.WORKFLOW_PAT || github.token }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Unzip, keep folders, replace older files
+        env:
+          HAS_PAT: ${{ secrets.WORKFLOW_PAT != '' }}
+        run: |
+          python3 - <<'PY'
+          import glob, os, re, subprocess, zipfile
+
+          SKIP_DIRS = {'__MACOSX', '.git', 'node_modules'}
+          CAN_EDIT_WORKFLOWS = os.environ.get('HAS_PAT') == 'true'
+          SKIP_FILES = {'.DS_Store', 'Thumbs.db'}
+          DUP = re.compile(r' \(\d+\)(?=\.[^.]+$|$)')  # "app (1).js" -> "app.js"
+
+          def zip_time(z):
+              t = subprocess.run(['git', 'log', '-1', '--format=%ct', '--', z], capture_output=True, text=True).stdout.strip()
+              return int(t) if t else int(os.path.getmtime(z))
+
+          # Oldest zip first, so a newer zip overwrites whatever an older one placed.
+          for z in sorted(glob.glob('*.zip'), key=lambda z: (zip_time(z), z)):
+              print(f'Unpacking {z}')
+              with zipfile.ZipFile(z) as zf:
+                  entries = []
+                  for i in zf.infolist():
+                      if i.is_dir():
+                          continue
+                      parts = [p for p in i.filename.replace('\\', '/').split('/') if p not in ('', '.')]
+                      if not parts or '..' in parts or SKIP_DIRS & set(parts[:-1]) or parts[-1] in SKIP_FILES:
+                          continue
+                      entries.append((parts, i))
+                  # Drop a single wrapper folder (my-project/index.html -> index.html).
+                  if entries and all(len(p) > 1 for p, _ in entries) and len({p[0] for p, _ in entries}) == 1:
+                      entries = [(p[1:], i) for p, i in entries]
+                  # Duplicates inside the zip ("app.js" vs "app (1).js"): the newest one wins.
+                  best = {}
+                  for parts, i in entries:
+                      parts = parts[:-1] + [DUP.sub('', parts[-1])]
+                      if len(parts) == 1:  # loose files: code goes in js/, everything else stays at the root
+                          if parts[0].endswith('.js'):
+                              parts = ['js', parts[0]]
+                      key = '/'.join(parts)
+                      if key.startswith('.github/workflows/') and not CAN_EDIT_WORKFLOWS:
+                          print(f'::warning::Skipped {key}: without the WORKFLOW_PAT secret GitHub refuses workflow changes. Commit it by hand.')
+                          continue
+                      if key not in best or i.date_time >= best[key][1].date_time:
+                          best[key] = (parts, i)
+                  for key, (parts, i) in sorted(best.items()):
+                      existed = os.path.exists(key)
+                      os.makedirs(os.path.dirname(key) or '.', exist_ok=True)
+                      with zf.open(i) as src, open(key, 'wb') as dst:
+                          dst.write(src.read())
+                      print(('replaced ' if existed else 'added    ') + key)
+              os.remove(z)
+          PY
+          git config user.name "github-actions"
+          git config user.email "actions@users.noreply.github.com"
+          git add -A
+          if git commit -m "Organize files from zip"; then
+            # Never fail the deploy over this: the site is built from the files on disk either way.
+            git pull --rebase -q || git rebase --abort || true
+            git push || echo "::warning::Could not push the organized files back to the repo (protected branch or missing permission)."
+          else
+            echo "nothing to commit"
+          fi
+      - name: Assemble site
+        run: |
+          test -f index.html || { echo "index.html missing"; exit 1; }
+          mkdir -p site/engine site/vendor _t
+          cp -r index.html style.css js site/
+          mkdir -p site/pieces
+          for p in wP wN wB wR wQ wK bP bN bB bR bQ bK; do
+            curl -fsSL --retry 3 "https://raw.githubusercontent.com/lichess-org/lila/master/public/piece/cburnett/$p.svg" -o "site/pieces/$p.svg"
+          done
+          cd _t
+          npm init -y >/dev/null
+          npm i stockfish@10.0.2 chess.js@1 esbuild lucide-static@0.468.0 >/dev/null
+          mkdir -p ../site/icons
+          # keep in sync with js/meta.js and the nav buttons in index.html
+          for i in sparkles zap star thumbs-up check circle-alert triangle-alert x octagon-x skip-back skip-forward chevron-left chevron-right arrow-up-down; do cp "node_modules/lucide-static/icons/$i.svg" "../site/icons/$i.svg"; done
+          echo "export { Chess } from 'chess.js'" > e.js
+          npx esbuild e.js --bundle --format=esm --minify --outfile=../site/vendor/chess.js
+          find node_modules/stockfish \( -name 'stockfish*.js' -o -name '*.wasm' \) -exec cp {} ../site/engine/ \;
+          cd ../site/engine
+          if ls *single*.js >/dev/null 2>&1; then M=$(ls *single*.js | head -1)
+          elif [ -f stockfish.wasm.js ]; then M=stockfish.wasm.js
+          else M=stockfish.js; fi
+          echo "{\"main\":\"$M\"}" > manifest.json
+          ls -la
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.d.outputs.page_url }}
+    steps:
+      - id: d
+        uses: actions/deploy-pages@v4
