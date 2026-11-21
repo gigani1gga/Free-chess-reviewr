@@ -27,7 +27,7 @@ async function compute(eng, fen, depth) {
 }
 
 function analyse(eng, fen, depth) {
-  const key = fen + '|' + depth;
+  const key = `${eng.kind}|${depth}|${fen}`;
   if (!cache.has(key)) {
     cache.set(key, compute(eng, fen, depth).catch(e => { cache.delete(key); throw e; }));
   }
@@ -56,8 +56,12 @@ export function buildReview({ headers, moves, fens }, pos) {
   const items = moves.map((m, i) => {
     const b = pos[i], a = pos[i + 1], me = m.color;
     const pov = w => (me === 'w' ? w : 100 - w);
-    const wb = pov(b.win), wa = pov(a.win), drop = Math.max(0, wb - wa);
-    const isBest = uci(m) === b.best;
+    const played = uci(m);
+    const isBest = played === b.best;
+    // If the move is one of the engine's top lines, use that line's own score: it comes from the same search
+    // as the "before" score, so depth noise can't make a best/second-best move look like a loss.
+    const line = b.lines.find(l => l.pv[0] === played);
+    const wb = pov(b.win), wa = pov(line ? line.win : a.win), drop = isBest ? 0 : Math.max(0, wb - wa);
     const gap = b.lines[1] ? wb - pov(b.lines[1].win) : null;
     const cls = classify({ drop, isBest, wb, wa, gap, sac: sacrifice(m, a.fen), prev });
     prev = drop;

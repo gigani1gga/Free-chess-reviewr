@@ -15,12 +15,18 @@
   <details>
     <summary>Options</summary>
     <label>Chess.com username (only if the link lookup fails)<input id="user" autocapitalize="off"></label>
+    <label>Engine
+      <select id="strength">
+        <option value="best" selected>Stockfish 19, full strength (~94 MB, downloads once)</option>
+        <option value="fast">Stockfish 19 Lite (~2 MB, weaker but quick)</option>
+      </select>
+    </label>
     <label>Analysis depth
       <select id="depth">
-        <option value="10">Fast (10)</option>
-        <option value="12" selected>Standard (12)</option>
-        <option value="14">Deep (14)</option>
-        <option value="16">Very deep (16)</option>
+        <option value="12">Fast (12)</option>
+        <option value="16" selected>Standard (16)</option>
+        <option value="18">Deep (18)</option>
+        <option value="20">Very deep (20)</option>
       </select>
     </label>
     <label>Or paste a PGN<textarea id="pgn"></textarea></label>
@@ -36,6 +42,7 @@
       <div id="board"></div>
     </div>
     <div id="ev" class="mut"></div>
+    <div id="engine" class="mut"></div>
     <div id="card" class="card"></div>
     <div class="nav">
       <button id="first" aria-label="First position" title="First position"><span class="ic" style="--i:url(icons/skip-back.svg)" aria-hidden="true"></span></button>

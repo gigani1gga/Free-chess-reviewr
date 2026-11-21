@@ -6,6 +6,7 @@ import { initUI, showReview, hideReview } from './ui.js';
 import { $ } from './util.js';
 
 let pool = null, busy = false;
+const ENGINE_NOTE = { best: 'Downloading Stockfish 19 (about 94 MB the first time, then cached)…', fast: 'Starting Stockfish 19 Lite…' };
 
 const status = (t, p = 0) => { $('status').textContent = t; $('bar').style.width = p + '%'; };
 
@@ -21,14 +22,17 @@ async function run() {
     status('Finding your game…', 2);
     const game = parseGame(await loadGame(raw, $('user').value.trim()));
 
+    const kind = $('strength').value;
+    if (pool && pool[0].kind !== kind) { disposePool(pool); pool = null; }
     if (!pool) {
-      status('Starting Stockfish…', 4);
-      pool = await createPool();
+      status(ENGINE_NOTE[kind], 4);
+      pool = await createPool(kind);
     }
     const pos = await analyseAll(pool, game.fens, +$('depth').value, (done, total) =>
       status(`Analyzing position ${done} of ${total}…`, 5 + (95 * done) / total));
 
     showReview(buildReview(game, pos));
+    $('engine').textContent = `Analysed by ${pool[0].name || 'Stockfish'} · depth ${$('depth').value} · ${pool.length > 1 ? pool.length + ' engines in parallel' : '1 engine'}`;
     status('Done.', 100);
   } catch (e) {
     status('⚠ ' + (e.message || e));

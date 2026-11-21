@@ -1,9 +1,17 @@
 // Talks UCI to Stockfish. Workers are loaded from your own site (engine/), never a CDN.
-const defaultPoolSize = () => Math.max(1, Math.min(3, (navigator.hardwareConcurrency || 2) - 1));
+// "best": full-strength Stockfish (big neural net, ~94 MB, one worker is plenty). "fast": Lite build, a few workers.
+// Both are the single-threaded builds because GitHub Pages can't send the headers multi-threading needs.
+const FAST_WORKERS = () => Math.max(1, Math.min(3, (navigator.hardwareConcurrency || 2) - 1));
+const PROFILE = {
+  best: { workers: () => 1, hash: 64, label: 'full strength' },
+  fast: { workers: FAST_WORKERS, hash: 16, label: 'lite' },
+};
+const LOAD_MS = 240000; // the first load downloads the engine, so be patient
 
 export class Engine {
-  constructor(main) {
+  constructor(main, kind) {
     this.main = main;
+    this.kind = kind;
     this.pending = new Set();
   }
 
@@ -14,10 +22,21 @@ export class Engine {
       for (const p of [...this.pending]) p.line(line);
     };
     this.w.onerror = () => this.fail(new Error('Stockfish crashed.'));
-    await this.ask('uci', 'uciok', 20000);
-    this.send('setoption name MultiPV value 2');
-    this.send('setoption name Hash value 16');
-    await this.ask('isready', 'readyok', 20000);
+    const options = new Set();
+    await this.ask('uci', 'uciok', LOAD_MS, l => {
+      if (l.startsWith('id name ')) this.name = l.slice(8).trim();
+      const o = /^option name (.+?) type /.exec(l);
+      if (o) options.add(o[1]);
+    });
+    const set = (name, value) => options.has(name) && this.send(`setoption name ${name} value ${value}`);
+    set('MultiPV', 2);
+    set('Hash', PROFILE[this.kind].hash);
+    // Stockfish's "contempt" makes the side to move look ~0.2 pawns better than it really is. Compared across
+    // two positions (before / after a move) that bias reads as a loss on every single move, so switch it off.
+    set('Contempt', 0);
+    set('Analysis Contempt', 'Off');
+    set('UCI_AnalyseMode', 'true');
+    await this.ask('isready', 'readyok', LOAD_MS);
     return this;
   }
 
@@ -63,13 +82,14 @@ export class Engine {
   }
 }
 
-// Starts several engines in parallel so positions can be analysed side by side.
-// Falls back to however many managed to start; throws only if none did.
-export async function createPool(size = defaultPoolSize()) {
+// Starts the engine(s) for a profile. Falls back to however many workers managed to start; throws only if none did.
+export async function createPool(kind = 'best') {
   const r = await fetch('engine/manifest.json');
   if (!r.ok) throw new Error('Engine files are missing. Run the GitHub Action first.');
-  const { main } = await r.json();
-  const engines = Array.from({ length: size }, () => new Engine(main));
+  const manifest = await r.json();
+  const main = manifest[kind] || manifest.best || manifest.fast;
+  if (!main) throw new Error('Engine files are missing. Run the GitHub Action first.');
+  const engines = Array.from({ length: PROFILE[kind].workers() }, () => new Engine(main, kind));
   const res = await Promise.allSettled(engines.map(e => e.init()));
   const ready = engines.filter((_, i) => res[i].status === 'fulfilled');
   engines.forEach(e => { if (!ready.includes(e)) e.terminate(); });
