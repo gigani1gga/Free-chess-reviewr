@@ -27,6 +27,9 @@ const WORKER_SPY = `(() => {
 const SCALE_TIMEOUTS = `(() => { const st = window.setTimeout.bind(window); window.setTimeout = (f, ms, ...a) => st(f, ms >= 100000 ? ms / 100 : ms, ...a); })();`;
 const SCALE_FETCH = `(() => { const st = window.setTimeout.bind(window); window.setTimeout = (f, ms, ...a) => st(f, ms === 30000 ? 400 : ms, ...a); })();`;
 const CORES = n => `Object.defineProperty(navigator, 'hardwareConcurrency', { get: () => ${n} });`;
+// configurable, so a test can override the default of 4 GB that newPage() pins (otherwise results would depend on the machine running the tests)
+const MEMORY = n => `Object.defineProperty(navigator, 'deviceMemory', { get: () => ${n}, configurable: true });`;
+const MOBILE = `Object.defineProperty(navigator, 'userAgentData', { get: () => ({ mobile: true }), configurable: true });`;
 
 let server, browser;
 const results = [];
@@ -41,6 +44,7 @@ async function newPage({ init = [], manifest, viewport, route } = {}) {
   page.on('requestfailed', r => problems.failed.push(r.url()));
   await page.route('**/favicon.ico', r => r.fulfill({ status: 204, body: '' }));
   await page.addInitScript(WORKER_SPY);
+  await page.addInitScript(MEMORY(4));
   for (const s of init) await page.addInitScript(s);
   if (manifest) await page.route('**/engine/manifest.json', r => r.fulfill({ json: manifest }));
   if (route) await route(page);
@@ -150,17 +154,173 @@ await test('navigation: buttons, keyboard, flip, graph click', async () => {
   await ctx.close();
 });
 
-await test('lite: 3 workers share the game, Hash 16, status messages', async () => {
-  const { page, workers, problems, ctx } = await newPage({ init: [CORES(8)] });
+await test('lite on a phone: 3 workers share the game, Hash 16, status messages', async () => {
+  const { page, workers, problems, ctx } = await newPage({ init: [CORES(8), MOBILE] });
   eq(await review(page, { pgn: RUY, depth: 12, strength: 'fast' }), 'Done.', 'status');
   const w = await workers();
-  eq(w.length, 3, 'lite worker count with 8 cores');
+  eq(w.length, 3, 'lite worker count on a phone with 8 cores');
   ok(w.every(x => x.url.endsWith('engine/stockfish-19-lite-single.js')), 'all lite workers use the lite build');
   ok(w.every(x => x.cmds.includes('setoption name Hash value 16')), 'lite Hash 16');
   ok(w.filter(x => x.cmds.some(c => c.startsWith('go '))).length >= 2, 'work is shared between workers');
   ok((await page.textContent('#engine')).includes('3 engines in parallel'), await page.textContent('#engine'));
   clean(problems);
   await ctx.close();
+});
+
+await test('lite on a desktop uses most cores (up to 6, one stays free); phones, low-memory devices and small CPUs keep fewer', async () => {
+  const cases = [
+    ['desktop, 8 cores, 4 GB', [CORES(8), MEMORY(4)], 6],
+    ['desktop, 16 cores, 8 GB (capped at 6)', [CORES(16), MEMORY(8)], 6],
+    ['desktop, 4 cores', [CORES(4), MEMORY(4)], 3],
+    ['desktop, memory not reported (Firefox / Safari), 8 cores', [CORES(8), MEMORY('undefined')], 6],
+    ['desktop reporting 2 GB, 8 cores', [CORES(8), MEMORY(2)], 3],
+    ['phone, 8 cores', [CORES(8), MEMORY(8), MOBILE], 3],
+    ['2 cores', [CORES(2), MEMORY(8)], 1],
+  ];
+  for (const [what, init, want] of cases) {
+    const { page, workers, ctx } = await newPage({ init });
+    eq(await review(page, { pgn: RUY, depth: 12, strength: 'fast' }), 'Done.', `status (${what})`);
+    const w = await workers();
+    eq(w.length, want, `lite worker count: ${what}`);
+    if (want > 1) ok(w.filter(x => x.cmds.some(c => c.startsWith('go '))).length >= 2, `work is shared (${what})`);
+    ok((await page.textContent('#engine')).includes(want > 1 ? `${want} engines in parallel` : '1 engine'), `${what}: ` + await page.textContent('#engine'));
+    await ctx.close();
+  }
+});
+
+const goCount = async workers => (await workers()).reduce((n, w) => n + w.cmds.filter(c => c.startsWith('go ')).length, 0);
+const snapshot = page => page.evaluate(() => ['acc', 'moves', 'ev', 'players'].map(id => document.getElementById(id).innerHTML).join('\n'));
+
+await test('finished positions are remembered on the device: after a reload the same game costs no searches and reads the same', async () => {
+  const { page, workers, problems, ctx } = await newPage();
+  eq(await review(page, { pgn: RUY, depth: 12 }), 'Done.', 'first review');
+  const first = await snapshot(page);
+  const n1 = await goCount(workers);
+  eq(n1, 21, 'first review searches all 21 positions');
+  await page.waitForTimeout(300); // let the saves finish
+  await page.reload();
+  eq(await review(page, { pgn: RUY, depth: 12 }), 'Done.', 'review after reload');
+  eq(await goCount(workers), 0, 'no searches after a reload');
+  eq(await snapshot(page), first, 'the review is identical');
+  // depth and engine are part of the key: neither may be answered from the other's results
+  await page.reload();
+  eq(await review(page, { pgn: RUY, depth: 16 }), 'Done.', 'other depth');
+  eq(await goCount(workers), 21, 'a different depth is searched afresh');
+  await page.reload();
+  eq(await review(page, { pgn: RUY, depth: 12, strength: 'fast' }), 'Done.', 'lite');
+  eq(await goCount(workers), 21, 'the lite engine does not reuse full-strength results');
+  clean(problems);
+  await ctx.close();
+});
+
+await test('positions reached in another game are shared (openings), even with different move numbers', async () => {
+  const { page, workers, ctx } = await newPage();
+  eq(await review(page, { pgn: RUY, depth: 12 }), 'Done.', 'game A');
+  await page.waitForTimeout(300);
+  await page.reload();
+  // same first 5 plies as RUY, then a different game: 9 positions, of which start..Bb5 (6) are known
+  const B = '[White "B1"]\n[Black "B2"]\n\n1. e4 e5 2. Nf3 Nc6 3. Bb5 Nf6 4. O-O Nxe4 *';
+  eq(await review(page, { pgn: B, depth: 12 }), 'Done.', 'game B');
+  eq(await goCount(workers), 3, 'only the 3 new positions are searched');
+  // a game that starts from a later move number (FEN "... 2 7") but reaches positions RUY already has
+  await page.reload();
+  const C = '[White "C1"]\n[Black "C2"]\n[SetUp "1"]\n[FEN "r1bqkbnr/pppp1ppp/2n5/4p3/4P3/5N2/PPPP1PPP/RNBQKB1R w KQkq - 2 7"]\n\n1. Bb5 g6 *';
+  eq(await review(page, { pgn: C, depth: 12 }), 'Done.', 'game C');
+  eq(await goCount(workers), 1, 'only the position after ...g6 is new: the start (move number 7 here, 3 in RUY) and the one after Bb5 are matched');
+  await ctx.close();
+});
+
+await test('storage unavailable or unresponsive: the review still completes with the engine doing all the work', async () => {
+  const denied = `Object.defineProperty(window, 'indexedDB', { get() { throw new Error('denied'); }, configurable: true });`;
+  const silent = `Object.defineProperty(window, 'indexedDB', { value: { open() { return {}; } }, configurable: true });`;
+  for (const [what, init, maxMs] of [['IndexedDB throws', [denied], 20000], ['IndexedDB never answers', [silent], 30000]]) {
+    const { page, workers, problems, ctx } = await newPage({ init });
+    const t0 = Date.now();
+    eq(await review(page, { pgn: RUY, depth: 12 }), 'Done.', `status (${what})`);
+    ok(Date.now() - t0 < maxMs, `${what}: took ${Date.now() - t0} ms`);
+    eq(await goCount(workers), 21, `${what}: every position was searched`);
+    clean(problems);
+    await ctx.close();
+  }
+});
+
+await test('full strength on a roomy desktop (8 GB, 8 cores): second worker starts after the first is ready, then both share the game', async () => {
+  const { page, workers, problems, ctx } = await newPage({ init: [CORES(8), MEMORY(8)], manifest: { best: 'mock-slowload.js', fast: 'mock-slowload.js' } });
+  await page.evaluate(() => { document.querySelector('details').open = true; });
+  await page.fill('#pgn', RUY);
+  await page.selectOption('#depth', '12');
+  await page.click('#go');
+  await page.waitForFunction(() => window.__w.length >= 1, null, { timeout: 5000 });
+  await page.waitForTimeout(1000); // the mock needs ~2.5 s to load, so the first worker is still starting
+  eq((await workers()).length, 1, 'only one worker while the first is still loading (so the engine files are downloaded once, not twice)');
+  await page.waitForFunction(() => /^(Done\.|⚠)/.test(document.getElementById('status').textContent), null, { timeout: 90000 });
+  eq(await page.textContent('#status'), 'Done.', 'status');
+  const w = await workers();
+  eq(w.length, 2, 'full-strength worker count with 8 GB and 8 cores');
+  ok(w.every(x => x.cmds.includes('setoption name Hash value 64')), 'Hash 64 on every full-strength worker');
+  ok(w.every(x => x.cmds.some(c => c.startsWith('go '))), 'both workers got positions');
+  ok((await page.textContent('#engine')).includes('2 engines in parallel'), await page.textContent('#engine'));
+  clean(problems);
+  await ctx.close();
+});
+
+await test('roomy desktop, first engine crashes: the usual error, and no second worker is started', async () => {
+  const { page, workers, ctx } = await newPage({ init: [CORES(8), MEMORY(8)], manifest: { best: 'mock-crash.js', fast: 'mock-crash.js' } });
+  eq(await review(page, { pgn: SCHOLAR }), '⚠ Stockfish crashed.', 'status');
+  const w = await workers();
+  eq(w.length, 1, 'worker count (a crashing build is not tried a second time)');
+  ok(w[0].terminated, 'worker terminated');
+  ok(await page.isEnabled('#go'), 'button re-enabled');
+  await ctx.close();
+});
+
+await test('roomy desktop, first engine hangs: one timeout, not one per worker', async () => {
+  // Compare with a one-worker machine under identical conditions: the failure must cost the same, i.e. one timeout.
+  const timed = async init => {
+    const { page, workers, ctx } = await newPage({ init: [SCALE_TIMEOUTS, ...init], manifest: { best: 'mock-hang.js', fast: 'mock-hang.js' } });
+    const t0 = Date.now();
+    eq(await review(page, { pgn: SCHOLAR }), '⚠ Stockfish did not respond in time.', 'status');
+    const ms = Date.now() - t0, w = await workers();
+    await ctx.close();
+    return { ms, w };
+  };
+  const one = await timed([CORES(8), MEMORY(4)]);
+  const two = await timed([CORES(8), MEMORY(8)]);
+  eq(two.w.length, 1, 'only the first worker was started');
+  ok(two.w[0].terminated, 'hung worker terminated');
+  ok(two.ms < one.ms + 1500, `roomy machine took ${two.ms} ms vs ${one.ms} ms on a one-worker machine; a second sequential timeout would add ~2.4 s`);
+});
+
+await test('roomy desktop, second worker cannot start: the review still completes with one engine', async () => {
+  let n = 0;
+  const crash = fs.readFileSync(path.join(SITE, 'engine/mock-crash.js'));
+  const { page, workers, problems, ctx } = await newPage({
+    init: [CORES(8), MEMORY(8)],
+    route: p => p.route('**/engine/stockfish-19-single.js', r => (++n === 1 ? r.continue() : r.fulfill({ status: 200, contentType: 'text/javascript', body: crash }))),
+  });
+  eq(await review(page, { pgn: RUY, depth: 12 }), 'Done.', 'status');
+  const w = await workers();
+  eq(w.length, 2, 'two workers were started');
+  ok(!w[0].terminated && w[1].terminated, 'the failed one was terminated, the working one kept');
+  ok((await page.textContent('#engine')).includes('1 engine'), await page.textContent('#engine'));
+  ok((await page.textContent('#engine')).includes('depth 12'), 'review is complete');
+  clean(problems, ['mock wasm abort', 'Stockfish']); // the injected crash may be logged by the browser
+  await ctx.close();
+});
+
+await test('full strength keeps ONE worker unless the machine clearly has room (<8 GB, <4 cores, phone, or memory not reported)', async () => {
+  const cases = [
+    ['4 GB, 8 cores', [CORES(8), MEMORY(4)]],
+    ['8 GB, 2 cores', [CORES(2), MEMORY(8)]],
+    ['8 GB, 8 cores, but a phone', [CORES(8), MEMORY(8), MOBILE]],
+    ['memory not reported (Firefox / Safari)', [CORES(8), MEMORY('undefined')]],
+  ];
+  for (const [what, init] of cases) {
+    const { page, workers, ctx } = await newPage({ init });
+    eq(await review(page, { pgn: SCHOLAR, depth: 12 }), 'Done.', `status (${what})`);
+    eq((await workers()).length, 1, `worker count with ${what}`);
+    await ctx.close();
+  }
 });
 
 await test('switching strength disposes the old engine; same game again hits the cache', async () => {

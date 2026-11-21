@@ -1,9 +1,21 @@
 // Talks UCI to Stockfish. Workers are loaded from your own site (engine/), never a CDN.
-// "best": full-strength Stockfish (big neural net, ~94 MB, one worker is plenty). "fast": Lite build, a few workers.
-// Both are the single-threaded builds because GitHub Pages can't send the headers multi-threading needs.
-const FAST_WORKERS = () => Math.max(1, Math.min(3, (navigator.hardwareConcurrency || 2) - 1));
+// "best": full-strength Stockfish (big neural net, ~94 MB). "fast": Lite build, several workers.
+// Both are the single-threaded builds because GitHub Pages can't send the headers multi-threading needs, so extra speed
+// comes from running whole positions in parallel, one position per worker.
+const isMobile = () => navigator.userAgentData?.mobile ?? /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent || '');
+// The Lite build is tiny (about 2 MB plus a 16 MB hash per worker), so on a desktop it can use most of the cores. Phones and
+// devices that report less than 4 GB stay at 3. One core is always left for the page.
+const FAST_WORKERS = () => {
+  const roomy = !isMobile() && (navigator.deviceMemory ?? 4) >= 4;
+  return Math.max(1, Math.min(roomy ? 6 : 3, (navigator.hardwareConcurrency || 2) - 1));
+};
+// Every full-strength worker holds its own copy of the net plus its own hash, so a second one only runs where there is
+// clearly room: a desktop browser that reports at least 8 GB (Chromium only; Firefox and Safari report nothing and keep
+// one worker) and has 4 or more cores. Phones and small machines stay at one.
+const BEST_WORKERS = () => (!isMobile() && (navigator.deviceMemory || 0) >= 8 && (navigator.hardwareConcurrency || 1) >= 4 ? 2 : 1);
+const MULTIPV = 2;
 const PROFILE = {
-  best: { workers: () => 1, hash: 64, label: 'full strength' },
+  best: { workers: BEST_WORKERS, hash: 64, label: 'full strength' },
   fast: { workers: FAST_WORKERS, hash: 16, label: 'lite' },
 };
 const LOAD_MS = 240000; // the first load downloads the engine, so be patient
@@ -29,13 +41,15 @@ export class Engine {
       if (o) options.add(o[1]);
     });
     const set = (name, value) => options.has(name) && this.send(`setoption name ${name} value ${value}`);
-    set('MultiPV', 2);
+    set('MultiPV', MULTIPV);
     set('Hash', PROFILE[this.kind].hash);
     // Stockfish's "contempt" makes the side to move look ~0.2 pawns better than it really is. Compared across
     // two positions (before / after a move) that bias reads as a loss on every single move, so switch it off.
     set('Contempt', 0);
     set('Analysis Contempt', 'Off');
     set('UCI_AnalyseMode', 'true');
+    // Names this exact engine setup: a result saved on the device (store.js) is only reused when all of this matches.
+    this.id = [this.main, this.name, 'mpv' + MULTIPV, 'hash' + PROFILE[this.kind].hash].join('|');
     await this.ask('isready', 'readyok', LOAD_MS);
     return this;
   }
@@ -91,8 +105,16 @@ export async function createPool(kind = 'best') {
   const main = manifest[kind] || manifest.best || manifest.fast;
   if (!main) throw new Error('Engine files are missing. Run the GitHub Action first.');
   const engines = Array.from({ length: PROFILE[kind].workers() }, () => new Engine(main, kind));
-  const res = await Promise.allSettled(engines.map(e => e.init()));
-  const ready = engines.filter((_, i) => res[i].status === 'fulfilled');
+  // The first engine starts alone when there are several full-strength ones: it downloads the engine files and the service
+  // worker caches them, so the others start from the device instead of each downloading ~94 MB at the same time.
+  let res;
+  if (kind === 'best' && engines.length > 1) {
+    const head = (await Promise.allSettled([engines[0].init()]))[0];
+    res = [head, ...(head.status === 'fulfilled' ? await Promise.allSettled(engines.slice(1).map(e => e.init())) : [])];
+  } else {
+    res = await Promise.allSettled(engines.map(e => e.init()));
+  }
+  const ready = engines.filter((_, i) => res[i]?.status === 'fulfilled');
   engines.forEach(e => { if (!ready.includes(e)) e.terminate(); });
   if (!ready.length) throw res[0].reason;
   return ready;

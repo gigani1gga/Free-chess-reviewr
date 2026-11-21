@@ -5,7 +5,7 @@ import { fileURLToPath } from 'node:url';
 const here = path.dirname(fileURLToPath(import.meta.url));
 const site = path.join(here, 'build/site/js');
 const { winPct, accuracy, classify } = await import(path.join(site, 'review.js'));
-const { parseGame, analyseAll, buildReview } = await import(path.join(site, 'analysis.js'));
+const { parseGame, analyseAll, buildReview, runSize, storeKey } = await import(path.join(site, 'analysis.js'));
 
 let fails = 0;
 const check = (name, cond, detail = '') => { console.log((cond ? 'PASS  ' : 'FAIL  ') + name + (cond ? '' : `  ${detail}`)); if (!cond) fails++; };
@@ -53,6 +53,112 @@ check('analyseAll: a different depth is re-analysed', calls.length === n1 + 3);
 const rev = buildReview(game, pos);
 check('buildReview: both best moves graded "best"/"great"/"excellent", 100% drop-free', rev.items.every(i => ['best', 'great', 'excellent'].includes(i.cls)), rev.items.map(i => i.cls).join());
 check('buildReview: accuracies are 100 when every move is the engine\'s first choice', near(rev.acc.w, 100, 0.01) && near(rev.acc.b, 100, 0.01));
+
+// Scheduling: each engine should work through runs of consecutive positions (its hash table then still holds the previous
+// search), every position must be analysed exactly once, and results/progress must be unaffected.
+{
+  const RUY = '1. e4 e5 2. Nf3 Nc6 3. Bb5 a6 4. Ba4 Nf6 5. O-O Be7 6. Re1 b5 7. Bb3 d6 8. c3 O-O 9. h3 Nb8 10. d4 Nbd7 *';
+  const g = parseGame(RUY); // 20 plies -> 21 positions
+  const done = [];
+  const mk = id => ({ kind: 'sched-test', async analyze(fen) {
+    done.push([id, fen]);
+    await new Promise(r => setTimeout(r, 1 + Math.random() * 4)); // engines finish at different speeds
+    return [{ cp: 10, pv: ['e2e4'] }, { cp: 0, pv: ['d2d4'] }];
+  } });
+  let seen = 0;
+  const res = await analyseAll([mk(0), mk(1), mk(2)], g.fens, 16, (d, t) => { seen = d; });
+  const idx = fen => g.fens.indexOf(fen);
+  check('scheduling: every position is analysed exactly once', done.length === g.fens.length && new Set(done.map(d => d[1])).size === g.fens.length, `${done.length} of ${g.fens.length}`);
+  check('scheduling: results are in position order and progress reaches 21/21', res.every((r, i) => r.fen === g.fens[i]) && seen === g.fens.length);
+  let singles = 0;
+  for (const id of [0, 1, 2]) {
+    const mine = done.filter(d => d[0] === id).map(d => idx(d[1])).sort((a, b) => a - b);
+    let run = 1;
+    for (let i = 1; i <= mine.length; i++) {
+      if (mine[i] === mine[i - 1] + 1) run++; else { if (mine.length && run < 2) singles++; run = 1; }
+    }
+  }
+  check('scheduling: engines take consecutive positions (at most one lone position, the odd one out at the end)', singles <= 1, `${singles} lone positions`);
+
+  // one engine must still go through the game strictly in order
+  const order = [];
+  await analyseAll([{ kind: 'sched-test-single', async analyze(fen) { order.push(idx(fen)); return [{ cp: 0, pv: ['e2e4'] }]; } }], g.fens, 16, () => {});
+  check('scheduling: a single engine analyses the game in order', order.join() === g.fens.map((_, i) => i).join(), order.join());
+}
+
+// Edge cases for the scheduler.
+{
+  const mkE = (kind, log) => ({ kind, async analyze(fen) { log.push(fen); return [{ cp: 0, pv: ['e2e4'] }]; } });
+  const g2 = parseGame('1. e4 e5 *'); // 3 positions
+  const log = [];
+  const r0 = await analyseAll([mkE('edge-a', log)], [], 16, () => {});
+  check('scheduling: no positions -> empty result, no engine calls', r0.length === 0 && log.length === 0);
+  const log2 = [];
+  const engines5 = [1, 2, 3, 4, 5].map(i => mkE('edge-b', log2));
+  const r5 = await analyseAll(engines5, g2.fens, 16, () => {});
+  check('scheduling: more engines than positions still analyses each position once, in order', r5.length === 3 && log2.length === 3 && r5.every((r, i) => r.fen === g2.fens[i]), log2.length);
+  let progress = [];
+  await analyseAll([mkE('edge-c', []), mkE('edge-c', [])], parseGame('1. e4 e5 2. Nf3 Nc6 3. Bb5 a6 *').fens, 14, (d, t) => progress.push(d));
+  check('scheduling: progress counts 1..n with no gaps or repeats', progress.join() === '1,2,3,4,5,6,7', progress.join());
+  let msg = '';
+  try {
+    await analyseAll([{ kind: 'edge-d', async analyze() { throw new Error('Stockfish crashed.'); } }, mkE('edge-d2', [])], g2.fens, 16, () => {});
+  } catch (e) { msg = e.message; }
+  check('scheduling: an engine error still rejects analyseAll with that error', msg === 'Stockfish crashed.', msg);
+  // a failed position must not be cached (a retry has to ask the engine again)
+  let calls = 0, fail = true;
+  const flaky = { kind: 'edge-e', async analyze() { calls++; if (fail) throw new Error('boom'); return [{ cp: 0, pv: ['e2e4'] }]; } };
+  await analyseAll([flaky], g2.fens.slice(0, 1), 16, () => {}).catch(() => {});
+  fail = false;
+  const rr = await analyseAll([flaky], g2.fens.slice(0, 1), 16, () => {});
+  check('scheduling: a failed position is retried on the next run, not cached', calls === 2 && rr.length === 1, String(calls));
+}
+
+// Guided scheduling: runs are long early on (hash reuse) and short at the end (no idle engines), whatever the engine count.
+{
+  let bad = '';
+  for (let E = 1; E <= 8 && !bad; E++) for (let N = 1; N <= 120 && !bad; N++) {
+    let left = N, lone = 0, last = Infinity;
+    while (left > 0) {
+      const r = runSize(left, E);
+      if (r < 1 || r > 8 || r > left) bad = `E=${E} N=${N} run=${r} left=${left}`;
+      if (r < 2 && left > 1) bad = `E=${E} N=${N}: run of 1 with ${left} left`;
+      if (r === 1) lone++;
+      if (r > last) bad = `E=${E} N=${N}: run grew from ${last} to ${r}`;
+      last = r; left -= r;
+    }
+    if (lone > 1) bad = `E=${E} N=${N}: ${lone} lone positions`;
+  }
+  check('scheduling: runs are 2-8 positions, never grow, and at most one lone position, for 1-8 engines and 1-120 positions', !bad, bad);
+  check('scheduling: 2 engines on 80 positions start with the longest run (8) and finish with runs of 2', runSize(80, 2) === 8 && runSize(4, 2) === 2);
+
+  // many engines at random speeds: every position exactly once, in order, whatever the mix
+  for (const E of [1, 2, 3, 6, 8]) {
+    const seen = [];
+    const g = parseGame('1. e4 e5 2. Nf3 Nc6 3. Bb5 a6 4. Ba4 Nf6 5. O-O Be7 6. Re1 b5 7. Bb3 d6 8. c3 O-O 9. h3 Nb8 10. d4 Nbd7 *');
+    const mk = () => ({ kind: `many-${E}`, async analyze(fen) { seen.push(fen); await new Promise(r => setTimeout(r, Math.random() * 4)); return [{ cp: 0, pv: ['e2e4'] }]; } });
+    const res = await analyseAll(Array.from({ length: E }, mk), g.fens, 12, () => {});
+    check(`scheduling: ${E} engine(s) analyse each of 21 positions once, results in order`, seen.length === 21 && new Set(seen).size === 21 && res.every((r, i) => r.fen === g.fens[i]), `${seen.length} calls`);
+  }
+}
+
+// On-device result store: the key must tell engines, depths and half-move clocks apart, but not move numbers.
+{
+  const A = { id: 'stockfish-19-single.js|Stockfish 19|mpv2|hash64' };
+  const f = 'rnbqkbnr/pppp1ppp/8/4p3/4P3/5N2/PPPP1PPP/RNBQKB1R b KQkq - 1 2';
+  check('store key: ignores the move number (same position reached in another game)', storeKey(A, 16, f) === storeKey(A, 16, f.replace(/ 2$/, ' 17')));
+  check('store key: a different half-move clock is a different entry', storeKey(A, 16, f) !== storeKey(A, 16, f.replace(' - 1 2', ' - 5 2')));
+  check('store key: depth, side to move and engine setup all matter',
+    storeKey(A, 16, f) !== storeKey(A, 18, f) && storeKey(A, 16, f) !== storeKey(A, 16, f.replace(' b ', ' w ')) &&
+    storeKey(A, 16, f) !== storeKey({ id: 'stockfish-19-lite-single.js|Stockfish 19|mpv2|hash16' }, 16, f));
+  check('store key: engines without an id (test fakes) are never stored', !storeKey({ kind: 'x' }, 16, f));
+  // No IndexedDB in Node: an engine WITH an id must still analyse normally, i.e. the store fails quietly.
+  let n = 0;
+  const withId = { kind: 'store-test', id: 'x|y|mpv2|hash16', async analyze() { n++; return [{ cp: 30, pv: ['e2e4'] }, { cp: 10, pv: ['d2d4'] }]; } };
+  const gg = parseGame('1. e4 e5 *');
+  const r1 = await analyseAll([withId], gg.fens, 16, () => {});
+  check('store: with no IndexedDB available the engine does the work and the review is intact', n === 3 && r1.length === 3 && r1[0].best === 'e2e4', `${n} calls`);
+}
 
 // mate handling
 const mateEng = { kind: 'mate-test', async analyze(fen) { return fen.split(' ')[1] === 'w' ? [{ mate: 2, pv: ['e2e4'] }] : [{ mate: -2, pv: ['e7e5'] }]; } };

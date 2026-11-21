@@ -22,7 +22,7 @@ async function run() {
     if (!raw) throw new Error('Paste a game link first.');
 
     status('Finding your game…', 2);
-    const game = parseGame(await loadGame(raw, $('user').value.trim(), t => status(t, 3)));
+    const game = parseGame(await loadGame(raw, $('user').value.trim()));
 
     const kind = $('strength').value;
     if (pool && pool[0].kind !== kind) { disposePool(pool); pool = null; }

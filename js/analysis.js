@@ -2,6 +2,7 @@
 import { Chess } from '../vendor/chess.js';
 import { winPct, accuracy, classify, sacrifice, tags, explain } from './review.js';
 import { BAD } from './meta.js';
+import { recall, remember } from './store.js';
 
 const cache = new Map(); // fen+depth -> Promise<position result>, so repeated positions/games are free
 
@@ -26,13 +27,35 @@ async function compute(eng, fen, depth) {
   return { fen, turn, lines, win: top.win, mate: top.mate, cp: top.cp, best: top.pv[0] };
 }
 
+// Same engine setup + same depth + same position = same answer, so finished positions are also kept on this device
+// (store.js). The move number changes nothing about what an engine finds (the half-move clock can, so it stays in the key),
+// which lets opening positions reached in other games match. Engines without an `id` (test fakes) are never stored.
+export const storeKey = (eng, depth, fen) => eng.id && `${eng.id}|${depth}|${fen.split(' ').slice(0, 5).join(' ')}`;
+
+async function solve(eng, fen, depth) {
+  const k = storeKey(eng, depth, fen);
+  const hit = k && await recall(k);
+  if (hit && Array.isArray(hit.lines) && hit.lines.length) return { ...hit, fen }; // `fen` keeps this game's move number
+  const r = await compute(eng, fen, depth);
+  if (k && r.lines.length) remember(k, r); // game-over positions never reach the engine, so there is nothing to keep
+  return r;
+}
+
 function analyse(eng, fen, depth) {
   const key = `${eng.kind}|${depth}|${fen}`;
   if (!cache.has(key)) {
-    cache.set(key, compute(eng, fen, depth).catch(e => { cache.delete(key); throw e; }));
+    cache.set(key, solve(eng, fen, depth).catch(e => { cache.delete(key); throw e; }));
   }
   return cache.get(key);
 }
+
+// Each engine takes a run of consecutive positions at a time instead of every n-th one. Position i+1 is reached by a move
+// from position i, so the engine's hash table (which is kept between positions) already holds much of the search it needs
+// when it moves on to i+1. Same depth, but usually less work than starting cold. Runs are claimed on demand, so a faster
+// engine simply takes more of them. Runs shrink towards the end of the game (guided scheduling), so that no engine is left
+// finishing a long run while the others sit idle.
+const MIN_RUN = 2, MAX_RUN = 8;
+export const runSize = (left, engines) => Math.min(left, Math.max(MIN_RUN, Math.min(MAX_RUN, Math.ceil(left / (engines * 2)))));
 
 // Spreads positions over all engines; resolves with results in the same order as `fens`.
 export async function analyseAll(engines, fens, depth, onProgress) {
@@ -40,9 +63,12 @@ export async function analyseAll(engines, fens, depth, onProgress) {
   let next = 0, done = 0;
   await Promise.all(engines.map(async eng => {
     while (next < fens.length) {
-      const i = next++;
-      out[i] = await analyse(eng, fens[i], depth);
-      onProgress(++done, fens.length);
+      const from = next, to = from + runSize(fens.length - from, engines.length);
+      next = to;
+      for (let i = from; i < to; i++) {
+        out[i] = await analyse(eng, fens[i], depth);
+        onProgress(++done, fens.length);
+      }
     }
   }));
   return out;
