@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Game Review</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<main>
+  <h1>Game Review</h1>
+  <p class="mut">Paste a Chess.com or Lichess game link. Stockfish runs on your device, free.</p>
+  <input id="link" placeholder="https://www.chess.com/game/live/123456789" autocapitalize="off" autocorrect="off" inputmode="url">
+  <details>
+    <summary>Options</summary>
+    <label>Chess.com username (only if the link lookup fails)<input id="user" autocapitalize="off"></label>
+    <label>Analysis depth
+      <select id="depth">
+        <option value="10">Fast (10)</option>
+        <option value="12" selected>Standard (12)</option>
+        <option value="14">Deep (14)</option>
+        <option value="16">Very deep (16)</option>
+      </select>
+    </label>
+    <label>Or paste a PGN<textarea id="pgn"></textarea></label>
+  </details>
+  <button id="go">Review game</button>
+  <div class="track"><div id="bar"></div></div>
+  <p id="status" class="mut"></p>
+
+  <section id="review" hidden>
+    <div id="players"></div>
+    <div class="boardrow">
+      <div id="evb"><div id="fill"></div></div>
+      <div id="board"></div>
+    </div>
+    <div id="ev" class="mut"></div>
+    <div id="card" class="card"></div>
+    <div class="nav">
+      <button id="first">⏮</button><button id="prev">◀</button><button id="next">▶</button><button id="last">⏭</button><button id="flip">⇅</button>
+    </div>
+    <div id="graph"></div>
+    <div id="acc"></div>
+    <div id="moves"></div>
+  </section>
+</main>
+<script type="module" src="js/app.js"></script>
+</body>
+</html>
