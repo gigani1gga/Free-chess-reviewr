@@ -84,7 +84,8 @@ export class Engine {
 
 // Starts the engine(s) for a profile. Falls back to however many workers managed to start; throws only if none did.
 export async function createPool(kind = 'best') {
-  const r = await fetch('engine/manifest.json');
+  // no-cache: GitHub Pages lets browsers keep files for 10 minutes, and an old manifest would point at engine files a new deploy replaced.
+  const r = await fetch('engine/manifest.json', { cache: 'no-cache' });
   if (!r.ok) throw new Error('Engine files are missing. Run the GitHub Action first.');
   const manifest = await r.json();
   const main = manifest[kind] || manifest.best || manifest.fast;

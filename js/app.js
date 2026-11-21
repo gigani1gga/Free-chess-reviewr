@@ -3,9 +3,11 @@ import { loadGame } from './fetchgame.js';
 import { createPool, disposePool } from './engine.js';
 import { parseGame, analyseAll, buildReview } from './analysis.js';
 import { initUI, showReview, hideReview } from './ui.js';
+import { keepEngineCached } from './offline.js';
 import { $ } from './util.js';
 
 let pool = null, busy = false;
+const cacheReady = keepEngineCached(); // never rejects
 const ENGINE_NOTE = { best: 'Downloading Stockfish 19 (about 94 MB the first time, then cached)…', fast: 'Starting Stockfish 19 Lite…' };
 
 const status = (t, p = 0) => { $('status').textContent = t; $('bar').style.width = p + '%'; };
@@ -26,6 +28,7 @@ async function run() {
     if (pool && pool[0].kind !== kind) { disposePool(pool); pool = null; }
     if (!pool) {
       status(ENGINE_NOTE[kind], 4);
+      await cacheReady;
       pool = await createPool(kind);
     }
     const pos = await analyseAll(pool, game.fens, +$('depth').value, (done, total) =>
