@@ -69,7 +69,7 @@ export function buildReview({ headers, moves, fens }, pos) {
       try { bestSan = new Chess(b.fen).move({ from: b.best.slice(0, 2), to: b.best.slice(2, 4), promotion: b.best[4] }).san; } catch { /* ignore */ }
     }
     const tg = tags({ m, b, a, drop, wb, wa, cls });
-    return { m, cls, best: isBest ? null : b.best, text: explain({ m, cls, tg, bestSan, wa, i }) };
+    return { m, cls, tags: tg.map(t => t[0]), best: isBest ? null : b.best, text: explain({ m, cls, tg, bestSan, wa, i }) };
   });
   const avg = xs => (xs.length ? xs.reduce((x, y) => x + y, 0) / xs.length : 0);
   return { headers, items, pos, acc: { w: avg(acc.w), b: avg(acc.b) }, cnt };

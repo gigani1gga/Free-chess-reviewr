@@ -36,7 +36,9 @@ export function sacrifice(m, afterFen) {
   return V[m.piece] - gain >= 2 && (minA < V[m.piece] || !defended);
 }
 
-const ORDER = ['mated', 'missMate', 'allowMate', 'hang', 'trade', 'missCap', 'thrown', 'swing', 'sac', 'only'];
+// Lower = mentioned first. Material tags (hang / trade / missCap) are ranked by how much material is involved instead.
+const ORDER = ['mated', 'missMate', 'allowMate', 'material', 'thrown', 'swing', 'sac', 'only'];
+const MATERIAL = ['hang', 'trade', 'missCap'];
 
 export function tags({ m, b, a, drop, wb, wa, cls }) {
   const t = [];
@@ -50,17 +52,21 @@ export function tags({ m, b, a, drop, wb, wa, cls }) {
     const r = a.best && play(a.fen, a.best);
     if (r && r.m.captured) {
       const recapture = r.c.moves({ verbose: true }).some(x => x.to === r.m.to && x.captured);
-      if (!recapture && V[r.m.captured] >= 1) t.push(['hang', { piece: N[r.m.captured], sq: r.m.to }]);
-      else if (recapture && V[r.m.captured] - V[r.m.piece] >= 2) t.push(['trade', { lost: N[r.m.captured], taker: N[r.m.piece] }]);
+      if (!recapture && V[r.m.captured] >= 1) t.push(['hang', { piece: N[r.m.captured], sq: r.m.to, taker: N[r.m.piece], w: V[r.m.captured] }]);
+      else if (recapture && V[r.m.captured] - V[r.m.piece] >= 2) t.push(['trade', { lost: N[r.m.captured], taker: N[r.m.piece], w: V[r.m.captured] - V[r.m.piece] }]);
     }
     const q = b.best && play(b.fen, b.best);
-    if (q && q.m.captured && V[q.m.captured] >= 3 && q.m.san !== m.san) t.push(['missCap', { piece: N[q.m.captured], sq: q.m.to }]);
+    if (q && q.m.captured && V[q.m.captured] >= 3 && q.m.san !== m.san) t.push(['missCap', { piece: N[q.m.captured], sq: q.m.to, taker: N[q.m.piece], w: V[q.m.captured] }]);
     if (wb >= 70 && wa <= 55) t.push(['thrown', {}]);
     else if (wb > 40 && wa <= 25) t.push(['swing', {}]);
   }
   if (cls === 'brilliant') t.push(['sac', { piece: N[m.piece] }]);
   if (cls === 'great') t.push(['only', {}]);
-  return t.sort((x, y) => ORDER.indexOf(x[0]) - ORDER.indexOf(y[0]));
+  // Lead with the biggest thing that happened: a missed queen capture matters more than a loose pawn.
+  const top = Math.max(0, ...t.filter(x => MATERIAL.includes(x[0])).map(x => x[1].w));
+  const rank = x => ORDER.indexOf(MATERIAL.includes(x[0]) ? 'material' : x[0]) * 100 - (MATERIAL.includes(x[0]) ? x[1].w : 0);
+  // Drop minor material remarks (a loose pawn) when a bigger one exists (a missed queen).
+  return t.filter(x => !(MATERIAL.includes(x[0]) && top >= 3 && x[1].w < 3)).sort((x, y) => rank(x) - rank(y));
 }
 
 // ---- Sentence pools: pick a headline, add up to 2 tag clauses, then "best was" + eval state.
@@ -79,9 +85,9 @@ const T = {
   mated: ['Checkmate!', '{san} is checkmate. Game over.'],
   missMate: ['{me} missed mate in {n}.', 'There was a forced mate in {n} here.', 'Mate in {n} was on the board.'],
   allowMate: ['This allows mate in {n}.', '{opp} now has a forced mate in {n}.', 'It walks into a forced mate in {n}.'],
-  hang: ['The {piece} on {sq} is left hanging.', '{opp} can just take the {piece} on {sq} for free.', 'This leaves the {piece} on {sq} undefended.'],
+  hang: ['The {piece} on {sq} is left hanging to the {taker}.', '{opp} can just take the {piece} on {sq} with the {taker}.', 'The {taker} can capture the {piece} on {sq} for free.'],
   trade: ['{me} loses material: the {lost} falls to a {taker}.', '{opp} wins the exchange by taking the {lost} with a {taker}.'],
-  missCap: ['{me} could have won the {piece} on {sq}.', 'A free {piece} on {sq} was there for the taking.'],
+  missCap: ['{me} could have won the {piece} on {sq} with the {taker}.', 'A free {piece} on {sq} was there for the {taker} to take.'],
   thrown: ['{me} was clearly winning and this throws most of it away.', 'This gives back a big advantage.'],
   swing: ['The game swings and {me} is now clearly worse.', 'This turns the position in {opp}’s favour.'],
   sac: ['{me} gives up the {piece} but the follow-up justifies it.', 'The {piece} sacrifice works tactically.'],

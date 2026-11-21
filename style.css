@@ -21,12 +21,21 @@ summary{cursor:pointer;color:var(--mut)}
 #fill{position:absolute;left:0;right:0;background:#f2f2f2}
 #board{flex:1;display:grid;grid-template-columns:repeat(8,minmax(0,1fr));grid-template-rows:repeat(8,minmax(0,1fr));aspect-ratio:1;position:relative;border-radius:4px;overflow:hidden}
 .sq{display:flex;align-items:center;justify-content:center;min-width:0;min-height:0;overflow:hidden;line-height:0}
+.sq{position:relative}
+.co{position:absolute;font:700 clamp(8px,2.7vw,12px)/1 system-ui,sans-serif;pointer-events:none;user-select:none}
+.co.r{top:3px;left:3px}
+.co.f{right:3px;bottom:3px}
+.l .co{color:#8a9f7b}
+.d .co{color:#e6dcc3}
 .sq img{width:88%;height:88%;display:block;pointer-events:none;user-select:none}
 .l{background:#e6dcc3}.d{background:#8a9f7b}
 .hl{box-shadow:inset 0 0 0 100px rgba(255,214,64,.45)}
 #board svg{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
-#board line{stroke:rgba(40,160,80,.85);stroke-width:.16;stroke-linecap:round}
-#board polygon{fill:rgba(40,160,80,.85)}
+#board line{stroke-width:.16;stroke-linecap:round}
+#board .good line{stroke:rgba(40,160,80,.85)}
+#board .good polygon{fill:rgba(40,160,80,.85)}
+#board .threat line{stroke:rgba(210,50,45,.85)}
+#board .threat polygon{fill:rgba(210,50,45,.85)}
 #ev{margin:4px 0 0 18px;font-variant-numeric:tabular-nums}
 .card{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:12px 14px;margin:10px 0;min-height:92px}
 .card p{margin:.4em 0 0}

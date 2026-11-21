@@ -3,6 +3,8 @@ import { drawBoard, preloadPieces } from './board.js';
 import { META, BAD, moveIcon } from './meta.js';
 import { $, esc, fmtEval } from './util.js';
 
+// Only draw the red reply when the move itself loses something (not when it merely missed a win).
+const PUNISHED = ['hang', 'trade', 'allowMate'];
 let R = null, ply = 0, flip = false;
 
 export function initUI() {
@@ -62,6 +64,17 @@ export function showReview(review) {
   go(0);
 }
 
+const arrow = (uci, kind) => ({ from: uci.slice(0, 2), to: uci.slice(2, 4), kind });
+
+// Green: what should have been played. Red: how the opponent punishes the move (the engine's best reply).
+function arrowsFor(it, pos) {
+  const out = [];
+  if (!it) return out;
+  if (it.best && BAD.includes(it.cls)) out.push(arrow(it.best, 'good'));
+  if (pos.best && it.tags.some(t => PUNISHED.includes(t))) out.push(arrow(pos.best, 'threat'));
+  return out;
+}
+
 function go(p) {
   if (!R) return;
   const n = R.items.length;
@@ -71,7 +84,7 @@ function go(p) {
   drawBoard($('board'), pos.fen, {
     flip,
     last: it && { from: it.m.from, to: it.m.to },
-    arrow: it?.best && BAD.includes(it.cls) ? { from: it.best.slice(0, 2), to: it.best.slice(2, 4) } : null,
+    arrows: arrowsFor(it, pos),
   });
 
   const f = $('fill').style;
@@ -81,7 +94,7 @@ function go(p) {
   $('ev').textContent = 'Eval ' + fmtEval(pos) + ' (White’s view)';
 
   $('card').innerHTML = !it
-    ? '<p>Step through with the arrows or tap any move below. A green arrow shows what should have been played.</p>'
+    ? '<p>Step through with the arrows or tap any move below. A green arrow shows what should have been played; a red one shows how the opponent can punish a move.</p>'
     : `<span class="badge" style="--c:${META[it.cls].color}">${moveIcon(it.cls)}</span><b>${Math.ceil(ply / 2)}${it.m.color === 'w' ? '.' : '…'} ${esc(it.m.san)}</b><p>${esc(it.text)}</p>`;
 
   // Highlight the current move and keep it visible inside the move list only (never scroll the page).
