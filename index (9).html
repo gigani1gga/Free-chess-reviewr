@@ -1,0 +1,559 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Game Review</title>
+<style>
+:root{--bg:#262421;--card:#312e2b;--fg:#f0eee9;--mut:#a09d97;--acc:#81b64c;--line:#464340;color-scheme:dark}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;padding:env(safe-area-inset-top) 10px env(safe-area-inset-bottom)}
+main{max-width:520px;margin:0 auto;padding:14px 0 56px}
+h1{font-size:1.6rem;margin:.2em 0}
+h2{font-size:1.05rem;margin:22px 0 8px}
+.mut,small{color:var(--mut)}
+input,select,textarea,button{font:inherit;color:var(--fg);background:var(--card);border:1px solid var(--line);border-radius:8px;padding:12px;width:100%}
+label{display:block;margin:10px 0 0;color:var(--mut);font-size:.9rem}
+label input,label select,label textarea{margin-top:4px}
+textarea{height:90px}
+details{margin:10px 0}
+summary{cursor:pointer;color:var(--mut)}
+#go{background:var(--acc);color:#10200a;border:0;font-weight:700;margin-top:10px}
+#go:disabled{opacity:.5}
+.track{height:5px;background:var(--line);border-radius:3px;margin-top:12px;overflow:hidden}
+#bar{height:100%;width:0;background:var(--acc);transition:width .2s}
+#players{display:flex;justify-content:space-between;gap:8px;margin:12px 0 8px}
+.boardrow{display:flex;gap:6px}
+#evb{width:14px;flex:none;background:#3a3836;position:relative;border-radius:3px;overflow:hidden}
+#fill{position:absolute;left:0;right:0;background:#f2f2f2;transition:height .25s}
+#board{flex:1;display:grid;grid-template-columns:repeat(8,1fr);aspect-ratio:1;position:relative;container-type:inline-size;border-radius:4px;overflow:hidden;touch-action:manipulation}
+.sq{position:relative;display:flex;align-items:center;justify-content:center}
+.l{background:#eeeed2}.d{background:#769656}
+.hl{box-shadow:inset 0 0 0 100px rgba(255,235,59,.45)}
+.sq img{width:100%;height:100%;pointer-events:none;-webkit-user-drag:none;user-select:none}
+.sq span{font-size:10cqw;line-height:1}
+.sq .w{color:#fff;text-shadow:0 0 1px #000,0 0 1px #000,0 0 3px #000}
+.sq .b{color:#1b1b1b;text-shadow:0 0 1px #fff,0 0 2px #fff}
+.bd{position:absolute;top:-3%;right:-3%;width:44%;height:44%;border-radius:50%;background:var(--c);color:#fff;font:700 3.6cqw/1 system-ui,sans-serif;font-style:normal;display:flex;align-items:center;justify-content:center;box-shadow:0 0 0 .35cqw rgba(0,0,0,.3);z-index:2}
+#board svg{position:absolute;inset:0;pointer-events:none;z-index:1}
+#board line{stroke:rgba(129,182,76,.9);stroke-width:.16;stroke-linecap:round}
+#board polygon{fill:rgba(129,182,76,.9)}
+.nav{display:flex;gap:6px;margin:10px 0}
+.nav button{flex:1;padding:12px 0;font-size:1.15rem}
+#play{background:var(--acc);color:#10200a;border:0}
+.card{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:12px 14px;min-height:7.5rem}
+.card p{margin:.5em 0 0}
+.badge{display:inline-flex;align-items:center;justify-content:center;min-width:26px;height:26px;border-radius:13px;background:var(--c);color:#fff;font:700 .8rem system-ui,sans-serif;padding:0 6px;margin-right:6px}
+.ev{float:right;color:var(--mut);font-variant-numeric:tabular-nums}
+#graph{margin:12px 0;height:70px;background:#3a3836;border-radius:6px;overflow:hidden;cursor:pointer}
+#graph svg{width:100%;height:100%;display:block}
+#acc{display:flex;gap:10px}
+.ac{flex:1;background:var(--card);border:1px solid var(--line);border-radius:8px;padding:10px}
+.ac .big{font-size:1.8rem;line-height:1.1;font-weight:700}
+.chips{display:flex;flex-wrap:wrap;gap:4px;margin-top:6px}
+.chips span{font-size:.72rem;border-left:3px solid var(--c);padding:1px 6px;background:var(--bg)}
+#moves{position:relative;max-height:260px;overflow-y:auto;background:var(--card);border:1px solid var(--line);border-radius:8px}
+.mv{display:grid;grid-template-columns:34px 1fr 1fr;border-bottom:1px solid var(--line)}
+.mv .no{color:var(--mut);padding:9px 0 0 10px;font-size:.85rem}
+#moves button{background:none;border:0;border-radius:0;text-align:left;padding:8px 10px;width:auto;display:flex;align-items:center;gap:7px}
+#moves .dot{width:10px;height:10px;border-radius:50%;background:var(--c);flex:none}
+#moves button.on{background:#4a4743;box-shadow:inset 3px 0 var(--acc)}
+.rp{display:grid;grid-template-columns:auto 1fr;gap:2px 8px;text-align:left;margin-bottom:6px;border-left:4px solid var(--c)}
+.rp span:last-child{grid-column:2;color:var(--mut);font-size:.92rem}
+</style>
+</head>
+<body>
+<main>
+  <h1>Game Review</h1>
+  <p class="mut">Paste a Chess.com or Lichess game link. Stockfish runs on your device, free.</p>
+  <input id="link" placeholder="https://www.chess.com/game/live/123456789" autocapitalize="off" autocorrect="off" inputmode="url">
+  <details>
+    <summary>Options</summary>
+    <label>Chess.com username (only if the link lookup fails)<input id="user" autocapitalize="off"></label>
+    <label>Analysis depth
+      <select id="depth">
+        <option value="10" selected>Fast (10)</option>
+        <option value="12">Standard (12)</option>
+        <option value="14">Deep (14)</option>
+        <option value="16">Very deep (16)</option>
+      </select>
+    </label>
+    <label>Or paste a PGN<textarea id="pgn"></textarea></label>
+  </details>
+  <button id="go">Review game</button>
+  <div class="track"><div id="bar"></div></div>
+  <p id="status" class="mut"></p>
+
+  <section id="review" hidden>
+    <div id="players"></div>
+    <div class="boardrow">
+      <div id="evb"><div id="fill"></div></div>
+      <div id="board"></div>
+    </div>
+    <div class="nav">
+      <button id="first">⏮</button><button id="prev">◀</button><button id="play">▶</button><button id="next">▶</button><button id="last">⏭</button><button id="flip">⇅</button>
+    </div>
+    <div id="card" class="card"></div>
+    <div id="graph"></div>
+    <div id="acc"></div>
+    <h2>All moves</h2>
+    <div id="moves"></div>
+    <h2>Key moments</h2>
+    <div id="report"></div>
+  </section>
+</main>
+<script type="module">
+import { Chess } from 'https://cdn.jsdelivr.net/npm/chess.js@1/+esm';
+const G = { p: '♟\uFE0E', n: '♞', b: '♝', r: '♜', q: '♛', k: '♚' };
+const FILES = 'abcdefgh';
+const PIECES = 'https://cdn.jsdelivr.net/gh/lichess-org/lila@master/public/piece/cburnett/';
+
+function drawBoard(el, fen, { flip = false, last = null, arrow = null, badge = null } = {}) {
+  const at = {};
+  fen.split(' ')[0].split('/').forEach((row, i) => {
+    let f = 0;
+    for (const ch of row) {
+      if (/\d/.test(ch)) f += +ch;
+      else at[FILES[f++] + (8 - i)] = ch;
+    }
+  });
+  let h = '';
+  for (let r = 0; r < 8; r++) {
+    for (let c = 0; c < 8; c++) {
+      const f = flip ? 7 - c : c, rk = flip ? r + 1 : 8 - r, id = FILES[f] + rk, p = at[id];
+      const hl = last && (id === last.from || id === last.to) ? ' hl' : '';
+      let piece = '';
+      if (p) {
+        const col = p === p.toUpperCase() ? 'w' : 'b', t = p.toLowerCase();
+        piece = `<img draggable="false" alt="" src="${PIECES}${col}${t.toUpperCase()}.svg" data-g="<span class='${col}'>${G[t]}</span>" onerror="this.outerHTML=this.dataset.g">`;
+      }
+      const bd = badge && id === badge.sq ? `<i class="bd" style="--c:${META[badge.cls][1]}">${META[badge.cls][0]}</i>` : '';
+      h += `<div class="sq ${(f + rk) % 2 ? 'd' : 'l'}${hl}">${piece}${bd}</div>`;
+    }
+  }
+  if (arrow) {
+    const xy = s => {
+      const f = FILES.indexOf(s[0]), k = +s[1];
+      return [(flip ? 7 - f : f) + 0.5, (flip ? k - 1 : 8 - k) + 0.5];
+    };
+    const [x1, y1] = xy(arrow.from), [x2, y2] = xy(arrow.to);
+    const L = Math.hypot(x2 - x1, y2 - y1) || 1, ux = (x2 - x1) / L, uy = (y2 - y1) / L;
+    const bx = x2 - ux * 0.3, by = y2 - uy * 0.3;
+    h += `<svg viewBox="0 0 8 8"><line x1="${x1}" y1="${y1}" x2="${bx}" y2="${by}"/>` +
+         `<polygon points="${x2},${y2} ${bx - uy * 0.17},${by + ux * 0.17} ${bx + uy * 0.17},${by - ux * 0.17}"/></svg>`;
+  }
+  el.innerHTML = h;
+}
+
+const V = { p: 1, n: 3, b: 3, r: 5, q: 9, k: 0 };      // material value
+const A = { p: 1, n: 3, b: 3, r: 5, q: 9, k: 100 };    // attacker value (king never captures into defence)
+const N = { p: 'pawn', n: 'knight', b: 'bishop', r: 'rook', q: 'queen', k: 'king' };
+
+// [symbol, colour, label]
+const META = {
+  brilliant: ['!!', '#1baca6', 'brilliant'],
+  great: ['!', '#5c8bb0', 'great'],
+  best: ['★', '#96bc4b', 'best'],
+  excellent: ['✓', '#96bc4b', 'excellent'],
+  good: ['✓', '#96af8b', 'good'],
+  inaccuracy: ['?!', '#f7c631', 'inaccuracy'],
+  mistake: ['?', '#ffa459', 'mistake'],
+  miss: ['✗', '#ff7769', 'miss'],
+  blunder: ['??', '#fa412d', 'blunder'],
+};
+
+const winPct = cp => 50 + 50 * (2 / (1 + Math.exp(-0.00368208 * cp)) - 1);
+const accuracy = drop => Math.max(0, Math.min(100, 103.1668 * Math.exp(-0.04354 * drop) - 3.1669));
+
+function classify({ drop, isBest, wb, wa, gap, sac, prev }) {
+  if (sac && drop <= 2 && wa >= 50 && wb < 92) return 'brilliant';
+  if (isBest && gap != null && gap >= 12 && wb > 12 && wb < 92 && wa < 97) return 'great';
+  if (drop >= 20) return 'blunder';
+  if (drop >= 5) return prev >= 10 ? 'miss' : drop >= 10 ? 'mistake' : 'inaccuracy';
+  if (isBest || drop <= 0.3) return 'best';
+  return drop <= 2 ? 'excellent' : 'good';
+}
+
+const play = (fen, u) => {
+  const c = new Chess(fen);
+  try { return { c, m: c.move({ from: u.slice(0, 2), to: u.slice(2, 4), promotion: u[4] }) }; }
+  catch { return null; }
+};
+
+// A piece is "sacrificed" if it lands on a square where it can be taken for a net material loss.
+function sacrifice(m, afterFen) {
+  if (m.piece === 'p' || m.piece === 'k') return false;
+  const c = new Chess(afterFen);
+  const opp = m.color === 'w' ? 'b' : 'w';
+  const att = c.attackers(m.to, opp);
+  if (!att.length) return false;
+  const minA = Math.min(...att.map(s => A[c.get(s).type]));
+  const gain = m.captured ? V[m.captured] : 0;
+  const defended = c.attackers(m.to, m.color).length > 0;
+  return V[m.piece] - gain >= 2 && (minA < V[m.piece] || !defended);
+}
+
+const ORDER = ['mated', 'missMate', 'allowMate', 'hang', 'trade', 'missCap', 'thrown', 'swing', 'sac', 'only'];
+
+function tags({ m, b, a, drop, wb, wa, cls }) {
+  const t = [];
+  const pov = x => (x == null ? null : m.color === 'w' ? x : -x);
+  const bm = pov(b.mate), am = pov(a.mate);
+  if (new Chess(a.fen).isCheckmate()) t.push(['mated', {}]);
+  if (bm > 0 && !(am > 0)) t.push(['missMate', { n: bm === 1 ? 'one' : bm }]);
+  else if (am < 0 && !(bm < 0)) t.push(['allowMate', { n: am === -1 ? 'one' : -am }]);
+
+  if (drop >= 5) {
+    const r = a.best && play(a.fen, a.best);
+    if (r && r.m.captured) {
+      const recapture = r.c.moves({ verbose: true }).some(x => x.to === r.m.to && x.captured);
+      if (!recapture && V[r.m.captured] >= 1) t.push(['hang', { piece: N[r.m.captured], sq: r.m.to }]);
+      else if (recapture && V[r.m.captured] - V[r.m.piece] >= 2) t.push(['trade', { lost: N[r.m.captured], taker: N[r.m.piece] }]);
+    }
+    const q = b.best && play(b.fen, b.best);
+    if (q && q.m.captured && V[q.m.captured] >= 3 && q.m.san !== m.san) t.push(['missCap', { piece: N[q.m.captured], sq: q.m.to }]);
+    if (wb >= 70 && wa <= 55) t.push(['thrown', {}]);
+    else if (wb > 40 && wa <= 25) t.push(['swing', {}]);
+  }
+  if (cls === 'brilliant') t.push(['sac', { piece: N[m.piece] }]);
+  if (cls === 'great') t.push(['only', {}]);
+  return t.sort((x, y) => ORDER.indexOf(x[0]) - ORDER.indexOf(y[0]));
+}
+
+// ---- Sentence pools: pick a headline, add up to 2 tag clauses, then "best was" + eval state.
+const P = {
+  brilliant: ['{san} is brilliant! A real sacrifice that the engine backs up.', '{san}!! Bold, and it actually works.', 'What a find: {san}.'],
+  great: ['{san} is a great move.', '{san} is the key move in this position.', 'Well spotted: {san}.'],
+  best: ['{san} is the best move.', '{san} is exactly what the engine wanted.', 'Top choice: {san}.', '{san} is spot on.'],
+  excellent: ['{san} is excellent.', '{san} is almost as good as the best move.', 'Very solid: {san}.'],
+  good: ['{san} is a good move.', '{san} is fine.', '{san} does the job.'],
+  inaccuracy: ['{san} is an inaccuracy.', '{san} is slightly imprecise.', '{san} is not the most accurate.'],
+  mistake: ['{san} is a mistake.', '{san} is a real slip.', '{san} hurts your position.'],
+  miss: ['{san} misses a chance.', 'You missed a chance with {san}.', '{san} lets your opponent off the hook.'],
+  blunder: ['{san} is a blunder.', '{san} is a serious blunder.', 'Ouch, {san} is a big blunder.'],
+};
+const T = {
+  mated: ['Checkmate!', '{san} is checkmate. Game over.'],
+  missMate: ['You missed mate in {n}.', 'There was a forced mate in {n} here.', 'Mate in {n} was on the board.'],
+  allowMate: ['This allows mate in {n}.', '{opp} now has a forced mate in {n}.', 'It walks into a forced mate in {n}.'],
+  hang: ['Your {piece} on {sq} is left hanging.', '{opp} can just take the {piece} on {sq} for free.', 'This leaves the {piece} on {sq} undefended.'],
+  trade: ['You lose material: your {lost} falls to a {taker}.', '{opp} wins the exchange by taking your {lost} with a {taker}.'],
+  missCap: ['You could have won the {piece} on {sq}.', 'A free {piece} on {sq} was there for the taking.'],
+  thrown: ['You were clearly winning and this throws most of it away.', 'This gives back a big advantage.'],
+  swing: ['The game swings and you are now clearly worse.', 'This turns the position in {opp}’s favour.'],
+  sac: ['You give up the {piece} but the follow-up justifies it.', 'The {piece} sacrifice works tactically.'],
+  only: ['It is the only move that keeps things under control.', 'Everything else was much worse.'],
+};
+const BETTER = ['Best was {best}.', 'The engine preferred {best}.', '{best} was the move.', 'Try {best} next time.'];
+const STATE = [[85, 'completely winning'], [65, 'clearly better'], [55, 'slightly better'], [45, 'roughly equal'], [35, 'slightly worse'], [15, 'clearly worse'], [0, 'lost']];
+
+function explain({ m, cls, tg, bestSan, wa, i }) {
+  let s = i * 7919 + 13; // seeded, so the same game always reads the same
+  const rnd = () => { s = (s * 1664525 + 1013904223) >>> 0; return s / 4294967296; };
+  const pick = arr => arr[Math.floor(rnd() * arr.length)];
+  const opp = m.color === 'w' ? 'Black' : 'White';
+  const fill = (t, v = {}) => t.replace(/\{(\w+)\}/g, (_, k) => ({ san: m.san, opp, best: bestSan, ...v })[k] ?? '');
+  if (tg.some(t => t[0] === 'mated')) return fill(pick(T.mated));
+  const out = [fill(pick(P[cls]))];
+  tg.slice(0, 2).forEach(([k, v]) => out.push(fill(pick(T[k]), v)));
+  if (bestSan && ['inaccuracy', 'mistake', 'miss', 'blunder'].includes(cls)) out.push(fill(pick(BETTER)));
+  if (['mistake', 'miss', 'blunder', 'brilliant'].includes(cls)) out.push(`The position is now ${STATE.find(x => wa >= x[0])[1]}.`);
+  return out.join(' ');
+}
+
+// Turns a game link (Chess.com / Lichess) or raw PGN into PGN text.
+const get = async url => {
+  const r = await fetch(url);
+  if (!r.ok) throw new Error(r.status + ' from ' + new URL(url).host);
+  return r;
+};
+
+async function loadGame(input, usernameHint = '') {
+  const text = input.trim();
+  if (/^(\[|1\.)/.test(text)) return text; // already a PGN
+  let u;
+  try { u = new URL(/^https?:/i.test(text) ? text : 'https://' + text); }
+  catch { throw new Error('That is not a game link or a PGN.'); }
+  const host = u.hostname.replace(/^www\./, '');
+  if (host.endsWith('chess.com')) return fromChessCom(u, usernameHint);
+  if (host.endsWith('lichess.org')) return fromLichess(u);
+  throw new Error('Only Chess.com and Lichess links are supported.');
+}
+
+async function fromLichess(u) {
+  const id = u.pathname.split('/').filter(Boolean)[0]?.slice(0, 8);
+  if (!id) throw new Error('Could not find a game id in that Lichess link.');
+  return (await get(`https://lichess.org/game/export/${id}?evals=0&clocks=0&opening=0`)).text();
+}
+
+async function fromChessCom(u, hint) {
+  const type = /daily/.test(u.pathname) ? 'daily' : 'live';
+  const m = (u.pathname + u.search + u.hash).match(/(\d{6,})/);
+  if (!m) throw new Error('Could not find a game id in that Chess.com link.');
+  const id = m[1];
+
+  // Step 1: ask Chess.com who played and when (may be blocked by the browser).
+  let names = [], date = '';
+  try {
+    const d = await (await get(`https://www.chess.com/callback/${type}/game/${id}`)).json();
+    const h = d.game?.pgnHeaders || {};
+    names = [h.White, h.Black, d.players?.top?.username, d.players?.bottom?.username];
+    date = h.Date || '';
+  } catch { /* fall back to the username box */ }
+  names = [...new Set([hint, ...names].filter(Boolean).map(n => n.toLowerCase()))];
+  if (!names.length) throw new Error('Chess.com blocked the direct lookup. Type your username under Options and try again.');
+
+  // Step 2: find the game in the player's monthly archive (public API).
+  const dm = date.match(/(\d{4})[.-](\d{2})/);
+  const base = dm ? new Date(Date.UTC(+dm[1], +dm[2] - 1, 15)) : new Date();
+  const offsets = dm ? [0, -1, 1] : [0, -1, -2, -3];
+  for (const n of names) {
+    for (const o of offsets) {
+      const d = new Date(base); d.setUTCMonth(d.getUTCMonth() + o);
+      const y = d.getUTCFullYear(), mo = String(d.getUTCMonth() + 1).padStart(2, '0');
+      try {
+        const data = await (await get(`https://api.chess.com/pub/player/${n}/games/${y}/${mo}`)).json();
+        const g = data.games?.find(x => x.url && x.url.includes(id));
+        if (g?.pgn) return g.pgn;
+      } catch { /* month missing, keep looking */ }
+    }
+  }
+  throw new Error('Could not find that game in the archives. Very new games can take a few minutes to appear, or try the PGN box.');
+}
+
+
+class Engine {
+  async init() {
+    const urls = [
+      'https://cdnjs.cloudflare.com/ajax/libs/stockfish.js/10.0.2/stockfish.js',
+      'https://cdn.jsdelivr.net/npm/stockfish.js@10.0.2/stockfish.js',
+      'https://unpkg.com/stockfish.js@10.0.2/stockfish.js'
+    ];
+    let src = null;
+    for (const u of urls) {
+      try {
+        const r = await fetch(u);
+        if (r.ok) { const t = await r.text(); if (t.length > 10000) { src = t; break; } }
+      } catch {}
+    }
+    if (!src) throw new Error('Could not download Stockfish. Check your connection and reload.');
+    this.fns = new Set();
+    // Blob worker: same-origin by construction, so no cross-origin worker errors.
+    this.w = new Worker(URL.createObjectURL(new Blob([src], { type: 'text/javascript' })));
+    this.w.onmessage = e => { const l = typeof e.data === 'string' ? e.data : ''; this.fns.forEach(f => f(l)); };
+    this.w.onerror = e => console.error('Stockfish worker error', e);
+    await this.ask('uci', 'uciok', 30000);
+    this.w.postMessage('setoption name MultiPV value 2');
+    await this.ask('isready', 'readyok', 30000);
+  }
+
+  ask(cmd, done, ms = 30000, onLine) {
+    return new Promise((res, rej) => {
+      const t = setTimeout(() => {
+        this.fns.delete(f);
+        rej(new Error('Stockfish did not respond in time.'));
+      }, ms);
+      const f = l => {
+        if (onLine) onLine(l);
+        if (l.startsWith(done)) { clearTimeout(t); this.fns.delete(f); res(l); }
+      };
+      this.fns.add(f);
+      this.w.postMessage(cmd);
+    });
+  }
+
+  // Returns up to 2 lines from the side to move's point of view: [{cp|mate, pv:[uci...]}]
+  async analyze(fen, depth) {
+    const lines = [];
+    this.w.postMessage('position fen ' + fen);
+    await this.ask('go depth ' + depth, 'bestmove', 60000, l => {
+      if (!l.startsWith('info')) return;
+      const s = / score (cp|mate) (-?\d+)/.exec(l);
+      const p = / pv (.+)$/.exec(l);
+      if (!s || !p) return;
+      const k = +((/ multipv (\d+)/.exec(l) || [0, 1])[1]);
+      lines[k - 1] = { [s[1]]: +s[2], pv: p[1].trim().split(' ') };
+    });
+    return lines.filter(Boolean);
+  }
+}
+
+
+const $ = id => document.getElementById(id);
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
+const status = (t, p = 0) => { $('status').textContent = t; $('bar').style.width = p + '%'; };
+const BAD = ['inaccuracy', 'mistake', 'miss', 'blunder'];
+
+let eng = null, R = null, ply = 0, flip = false;
+const cache = new Map();
+
+$('go').addEventListener('click', run);
+$('link').addEventListener('keydown', e => { if (e.key === 'Enter') run(); });
+
+async function run() {
+  $('go').disabled = true;
+  $('review').hidden = true;
+  try {
+    const raw = $('pgn').value.trim() || $('link').value.trim();
+    if (!raw) throw new Error('Paste a game link first.');
+    status('Finding your game…', 2);
+    const pgn = await loadGame(raw, $('user').value.trim());
+    const g = new Chess();
+    g.loadPgn(pgn);
+    const mvs = g.history({ verbose: true });
+    if (!mvs.length) throw new Error('That game has no moves.');
+    const fens = [mvs[0].before, ...mvs.map(m => m.after)];
+    const depth = +$('depth').value;
+    if (!eng) {
+      status('Starting Stockfish…', 4);
+      const e = new Engine();
+      await e.init();
+      eng = e;
+    }
+    const pos = [];
+    for (let i = 0; i < fens.length; i++) {
+      status(`Analyzing position ${i} of ${fens.length - 1}…`, 5 + (95 * i) / fens.length);
+      pos.push(await analyse(fens[i], depth));
+    }
+    R = build(g.header(), mvs, pos);
+    ply = 0;
+    show();
+    status('Done.', 100);
+  } catch (e) {
+    status('⚠ ' + (e.message || e), 0);
+  }
+  $('go').disabled = false;
+}
+
+async function analyse(fen, depth) {
+  const key = fen + depth;
+  if (cache.has(key)) return cache.get(key);
+  const c = new Chess(fen), t = c.turn();
+  let res;
+  if (c.isCheckmate()) res = { fen, turn: t, win: t === 'w' ? 0 : 100, lines: [] };
+  else if (c.isGameOver()) res = { fen, turn: t, win: 50, lines: [] };
+  else {
+    const s = t === 'w' ? 1 : -1; // engine scores are from the side to move; convert to White's view
+    const lines = (await eng.analyze(fen, depth)).map(l => {
+      const mate = l.mate != null ? l.mate * s : null, cp = l.cp != null ? l.cp * s : null;
+      return { mate, cp, pv: l.pv, win: mate != null ? (mate > 0 ? 100 : 0) : winPct(cp) };
+    });
+    const L = lines[0] || { win: 50, pv: [] };
+    res = { fen, turn: t, lines, win: L.win, mate: L.mate, cp: L.cp, best: L.pv[0] };
+  }
+  cache.set(key, res);
+  return res;
+}
+
+function build(h, mvs, pos) {
+  const acc = { w: [], b: [] }, cnt = { w: {}, b: {} };
+  let prev = 0;
+  const items = mvs.map((m, i) => {
+    const b = pos[i], a = pos[i + 1], me = m.color;
+    const pov = w => (me === 'w' ? w : 100 - w);
+    const wb = pov(b.win), wa = pov(a.win), drop = Math.max(0, wb - wa);
+    const isBest = m.from + m.to + (m.promotion || '') === b.best;
+    const gap = b.lines[1] ? wb - pov(b.lines[1].win) : null;
+    const cls = classify({ drop, isBest, wb, wa, gap, sac: sacrifice(m, a.fen), prev });
+    prev = drop;
+    acc[me].push(accuracy(drop));
+    cnt[me][cls] = (cnt[me][cls] || 0) + 1;
+    let bestSan = null;
+    if (b.best && !isBest) {
+      try { bestSan = new Chess(b.fen).move({ from: b.best.slice(0, 2), to: b.best.slice(2, 4), promotion: b.best[4] }).san; } catch {}
+    }
+    const tg = tags({ m, b, a, drop, wb, wa, cls });
+    return { m, cls, best: isBest ? null : b.best, text: explain({ m, cls, tg, bestSan, wa, i }) };
+  });
+  const avg = a => (a.length ? a.reduce((x, y) => x + y, 0) / a.length : 0);
+  return { h, mvs, pos, items, acc: { w: avg(acc.w), b: avg(acc.b) }, cnt };
+}
+
+const fmt = p => p.mate != null ? (p.mate > 0 ? 'M' : '-M') + Math.abs(p.mate)
+  : p.cp != null ? (p.cp > 0 ? '+' : '') + (p.cp / 100).toFixed(1)
+  : p.win === 100 ? '1-0' : p.win === 0 ? '0-1' : '½';
+
+let timer = null;
+const stop = () => { if (timer) { clearInterval(timer); timer = null; } $('play').textContent = '▶'; };
+function togglePlay() {
+  if (timer) return stop();
+  if (ply >= R.items.length) go(0);
+  $('play').textContent = '⏸';
+  timer = setInterval(() => { if (ply >= R.items.length) stop(); else go(ply + 1); }, 1700);
+}
+
+function show() {
+  stop();
+  const { h, items, acc, cnt, pos } = R;
+  $('review').hidden = false;
+  const nm = (n, e) => `<div><b>${esc(n)}</b>${e ? ` <small>(${esc(e)})</small>` : ''}</div>`;
+  $('players').innerHTML = nm(h.White || 'White', h.WhiteElo) + `<div class="mut">${esc(h.Result || '')}</div>` + nm(h.Black || 'Black', h.BlackElo);
+  $('acc').innerHTML = ['w', 'b'].map(c => `<div class="ac"><div class="big">${acc[c].toFixed(1)}</div><small>${c === 'w' ? 'White' : 'Black'} accuracy</small><div class="chips">` +
+    Object.keys(META).filter(k => cnt[c][k]).map(k => `<span style="--c:${META[k][1]}">${cnt[c][k]} ${META[k][2]}</span>`).join('') + '</div></div>').join('');
+  let rows = '';
+  const cell = j => items[j] ? `<button data-p="${j + 1}" style="--c:${META[items[j].cls][1]}"><i class="dot"></i>${esc(items[j].m.san)}</button>` : '<span></span>';
+  for (let i = 0; i < items.length; i += 2) rows += `<div class="mv"><span class="no">${i / 2 + 1}</span>${cell(i)}${cell(i + 1)}</div>`;
+  $('moves').innerHTML = rows;
+  const key = ['brilliant', 'great', 'miss', 'mistake', 'blunder', 'inaccuracy'];
+  $('report').innerHTML = items.map((it, i) => key.includes(it.cls)
+    ? `<button class="rp" data-p="${i + 1}" style="--c:${META[it.cls][1]}"><span class="badge" style="--c:${META[it.cls][1]}">${META[it.cls][0]}</span><b>${Math.ceil((i + 1) / 2)}${it.m.color === 'w' ? '.' : '…'} ${esc(it.m.san)}</b><span>${esc(it.text)}</span></button>` : '').join('')
+    || '<p class="mut">No big moments in this game.</p>';
+  const n = pos.length - 1, pts = pos.map((p, i) => `${(i / n) * 400},${70 - p.win * 0.7}`).join(' ');
+  $('graph').innerHTML = `<svg viewBox="0 0 400 70" preserveAspectRatio="none"><polygon points="0,70 ${pts} 400,70" fill="#e8e8e8"/><line id="gm" y1="0" y2="70" stroke="#81b64c" stroke-width="2"/></svg>`;
+  go(0);
+  togglePlay(); // auto-play the review; tap ⏸ to take over
+}
+
+function go(p) {
+  if (!R) return;
+  const n = R.items.length;
+  ply = Math.max(0, Math.min(n, p));
+  const pos = R.pos[ply], it = R.items[ply - 1];
+  drawBoard($('board'), pos.fen, {
+    flip,
+    last: it && { from: it.m.from, to: it.m.to },
+    arrow: it && it.best && BAD.includes(it.cls) ? { from: it.best.slice(0, 2), to: it.best.slice(2, 4) } : null,
+    badge: it && { sq: it.m.to, cls: it.cls },
+  });
+  const f = $('fill').style;
+  f.height = pos.win + '%';
+  f.bottom = flip ? 'auto' : '0';
+  f.top = flip ? '0' : 'auto';
+  const ev = `<span class="ev">${fmt(pos)}</span>`;
+  $('card').innerHTML = !it
+    ? ev + '<p>The review plays automatically. Tap ⏸ to stop, or tap any move in the list.</p>'
+    : ev + `<span class="badge" style="--c:${META[it.cls][1]}">${META[it.cls][0]}</span><b>${Math.ceil(ply / 2)}${it.m.color === 'w' ? '.' : '…'} ${esc(it.m.san)}</b><p>${esc(it.text)}</p>`;
+  // scroll only inside the move list, never the page
+  const box = $('moves');
+  box.querySelectorAll('button.on').forEach(b => b.classList.remove('on'));
+  const cur = box.querySelector(`button[data-p="${ply}"]`);
+  if (cur) { cur.classList.add('on'); box.scrollTop = cur.offsetTop - box.clientHeight / 2 + cur.offsetHeight / 2; }
+  const gm = $('gm');
+  if (gm) { gm.setAttribute('x1', (ply / n) * 400); gm.setAttribute('x2', (ply / n) * 400); }
+}
+
+$('first').onclick = () => { stop(); go(0); };
+$('prev').onclick = () => { stop(); go(ply - 1); };
+$('next').onclick = () => { stop(); go(ply + 1); };
+$('last').onclick = () => { stop(); go(1e9); };
+$('play').onclick = togglePlay;
+$('flip').onclick = () => { flip = !flip; go(ply); };
+$('moves').addEventListener('click', e => { const b = e.target.closest('button'); if (b) { stop(); go(+b.dataset.p); } });
+$('report').addEventListener('click', e => {
+  const b = e.target.closest('button');
+  if (b) { stop(); go(+b.dataset.p); $('board').scrollIntoView({ behavior: 'smooth', block: 'center' }); }
+});
+$('graph').addEventListener('click', e => {
+  if (!R) return;
+  const r = e.currentTarget.getBoundingClientRect();
+  stop();
+  go(Math.round(((e.clientX - r.left) / r.width) * R.items.length));
+});
+document.addEventListener('keydown', e => {
+  if (['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement.tagName)) return;
+  if (e.key === 'ArrowLeft') { stop(); go(ply - 1); }
+  if (e.key === 'ArrowRight') { stop(); go(ply + 1); }
+});
+</script>
+</body>
+</html>
