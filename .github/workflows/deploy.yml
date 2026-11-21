@@ -102,7 +102,9 @@ jobs:
           echo "export { Chess } from 'chess.js'" > e.js
           npx esbuild e.js --bundle --format=esm --minify --outfile=../site/vendor/chess.js
           # Single-threaded builds only: GitHub Pages can't send the headers multi-threaded WASM needs.
-          find node_modules/stockfish -type f \( -name 'stockfish*-single*.js' -o -name 'stockfish*-single*.wasm' \) ! -name '*asm*' -exec cp {} ../site/engine/ \;
+          # (No "! -name '*asm*'" filter here: ".wasm" itself contains "asm" and would exclude every wasm file. The asm.js
+          # build has no "-single" in its name, so the pattern already leaves it out.)
+          find node_modules/stockfish -type f \( -name 'stockfish*-single*.js' -o -name 'stockfish*-single*.wasm' \) -exec cp {} ../site/engine/ \;
           cd ../site/engine
           FAST=$(ls *lite*single*.js 2>/dev/null | head -1)
           BEST=$(ls *single*.js 2>/dev/null | grep -v lite | head -1)
