@@ -1,48 +1,80 @@
-// Talks UCI to Stockfish. The worker is loaded from your own site (engine/), never a CDN.
+// Talks UCI to Stockfish. Workers are loaded from your own site (engine/), never a CDN.
+const defaultPoolSize = () => Math.max(1, Math.min(3, (navigator.hardwareConcurrency || 2) - 1));
+
 export class Engine {
-  async init() {
-    const r = await fetch('engine/manifest.json');
-    if (!r.ok) throw new Error('Engine files are missing. Run the GitHub Action first.');
-    const { main } = await r.json();
-    this.fns = new Set();
-    this.w = new Worker('engine/' + main);
-    this.w.onmessage = e => {
-      const l = typeof e.data === 'string' ? e.data : '';
-      this.fns.forEach(f => f(l));
-    };
-    this.w.onerror = e => console.error('Stockfish worker error', e);
-    await this.ask('uci', 'uciok', 20000);
-    this.w.postMessage('setoption name MultiPV value 2');
-    await this.ask('isready', 'readyok', 20000);
+  constructor(main) {
+    this.main = main;
+    this.pending = new Set();
   }
 
+  async init() {
+    this.w = new Worker('engine/' + this.main);
+    this.w.onmessage = e => {
+      const line = typeof e.data === 'string' ? e.data : '';
+      for (const p of [...this.pending]) p.line(line);
+    };
+    this.w.onerror = () => this.fail(new Error('Stockfish crashed.'));
+    await this.ask('uci', 'uciok', 20000);
+    this.send('setoption name MultiPV value 2');
+    this.send('setoption name Hash value 16');
+    await this.ask('isready', 'readyok', 20000);
+    return this;
+  }
+
+  send(cmd) { this.w.postMessage(cmd); }
+
+  // Send a command and resolve with the first line starting with `done`; `onLine` sees every line.
   ask(cmd, done, ms = 30000, onLine) {
     return new Promise((res, rej) => {
-      const t = setTimeout(() => {
-        this.fns.delete(f);
-        rej(new Error('Stockfish did not respond in time.'));
-      }, ms);
-      const f = l => {
-        if (onLine) onLine(l);
-        if (l.startsWith(done)) { clearTimeout(t); this.fns.delete(f); res(l); }
+      const finish = () => { clearTimeout(t); this.pending.delete(p); };
+      const p = {
+        line: l => {
+          onLine?.(l);
+          if (l.startsWith(done)) { finish(); res(l); }
+        },
+        rej: err => { finish(); rej(err); },
       };
-      this.fns.add(f);
-      this.w.postMessage(cmd);
+      const t = setTimeout(() => { this.send('stop'); p.rej(new Error('Stockfish did not respond in time.')); }, ms);
+      this.pending.add(p);
+      this.send(cmd);
     });
   }
 
-  // Returns up to 2 lines from the side to move's point of view: [{cp|mate, pv:[uci...]}]
+  fail(err) { for (const p of [...this.pending]) p.rej(err); }
+
+  terminate() {
+    this.fail(new Error('Cancelled.'));
+    this.w?.terminate();
+  }
+
+  // Up to 2 lines from the side to move's point of view: [{cp|mate, pv:[uci...]}]
   async analyze(fen, depth) {
     const lines = [];
-    this.w.postMessage('position fen ' + fen);
-    await this.ask('go depth ' + depth, 'bestmove', 60000, l => {
-      if (!l.startsWith('info')) return;
+    this.send('position fen ' + fen);
+    await this.ask('go depth ' + depth, 'bestmove', 120000, l => {
+      if (!l.startsWith('info') || / (lower|upper)bound/.test(l)) return;
       const s = / score (cp|mate) (-?\d+)/.exec(l);
       const p = / pv (.+)$/.exec(l);
       if (!s || !p) return;
-      const k = +((/ multipv (\d+)/.exec(l) || [0, 1])[1]);
+      const k = +(/ multipv (\d+)/.exec(l)?.[1] ?? 1);
       lines[k - 1] = { [s[1]]: +s[2], pv: p[1].trim().split(' ') };
     });
     return lines.filter(Boolean);
   }
 }
+
+// Starts several engines in parallel so positions can be analysed side by side.
+// Falls back to however many managed to start; throws only if none did.
+export async function createPool(size = defaultPoolSize()) {
+  const r = await fetch('engine/manifest.json');
+  if (!r.ok) throw new Error('Engine files are missing. Run the GitHub Action first.');
+  const { main } = await r.json();
+  const engines = Array.from({ length: size }, () => new Engine(main));
+  const res = await Promise.allSettled(engines.map(e => e.init()));
+  const ready = engines.filter((_, i) => res[i].status === 'fulfilled');
+  engines.forEach(e => { if (!ready.includes(e)) e.terminate(); });
+  if (!ready.length) throw res[0].reason;
+  return ready;
+}
+
+export const disposePool = pool => pool.forEach(e => e.terminate());
