@@ -13,9 +13,9 @@ Needs: Node 18+, Python 3 + PyYAML, git, Google Chrome, the `playwright` npm pac
 
 ## What each step checks
 - `perft.mjs`: the chess.js stand-in against published move counts (if this fails, distrust everything else).
-- `unit.mjs`: grading maths (win%, accuracy, classification), score conversion, cache.
+- `unit.mjs`: grading maths (win%, accuracy, classification), score conversion, cache, and the coach (`js/coach.js`): reasons are only ever stated when the replayed engine line proves them.
 - `workflow-test.py`: runs the REAL shell/python blocks from `deploy.yml` with fake npm/npx/curl and a mock `stockfish@19.0.1` package.
-- `e2e.mjs`: the real app in Chrome: engine handshake, full/lite profiles, depth, hang/crash/missing-file errors, navigation, phone layout.
+- `e2e.mjs`: the real app in Chrome: engine handshake, full/lite profiles, depth, hang/crash/missing-file errors, navigation, phone layout, per-move Stockfish lines (play them on the board), "Ask Stockfish" (MultiPV 3 then back to 2).
   Screenshots land in `build/shots/`.
 
 ## Extending

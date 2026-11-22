@@ -25,6 +25,7 @@ export class Engine {
     this.main = main;
     this.kind = kind;
     this.pending = new Set();
+    this.queue = Promise.resolve(); // searches on one worker never overlap: their output would get mixed up
   }
 
   async init() {
@@ -40,6 +41,7 @@ export class Engine {
       const o = /^option name (.+?) type /.exec(l);
       if (o) options.add(o[1]);
     });
+    this.options = options;
     const set = (name, value) => options.has(name) && this.send(`setoption name ${name} value ${value}`);
     set('MultiPV', MULTIPV);
     set('Hash', PROFILE[this.kind].hash);
@@ -80,8 +82,28 @@ export class Engine {
     this.w?.terminate();
   }
 
+  // One search at a time per worker: later calls wait for the earlier ones, and a failed search never blocks the next.
+  exclusive(job) {
+    const run = this.queue.then(job, job);
+    this.queue = run.catch(() => {});
+    return run;
+  }
+
   // Up to 2 lines from the side to move's point of view: [{cp|mate, pv:[uci...]}]
-  async analyze(fen, depth) {
+  analyze(fen, depth) { return this.exclusive(() => this.search(fen, depth)); }
+
+  // A deeper look with more candidate moves ("Ask Stockfish"). MultiPV goes back to its normal value afterwards, so the
+  // worker stays the same engine setup that stored results were made with.
+  explore(fen, depth, n = 3) {
+    return this.exclusive(async () => {
+      const can = this.options?.has('MultiPV');
+      if (can) this.send(`setoption name MultiPV value ${n}`);
+      try { return await this.search(fen, depth); }
+      finally { if (can) this.send(`setoption name MultiPV value ${MULTIPV}`); }
+    });
+  }
+
+  async search(fen, depth) {
     const lines = [];
     this.send('position fen ' + fen);
     await this.ask('go depth ' + depth, 'bestmove', 120000, l => {

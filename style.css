@@ -62,3 +62,15 @@ summary{cursor:pointer;color:var(--mut)}
 #moves button.on{outline:2px solid var(--acc)}
 button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible,summary:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
 @media (prefers-reduced-motion:reduce){#bar{transition:none}}
+
+#lines,#answer{display:flex;flex-direction:column;gap:6px;margin:6px 0}
+.ln{display:grid;grid-template-columns:1fr auto;gap:2px 8px;text-align:left;padding:8px 12px}
+.ln .lb{font-weight:700}.ln .lv{color:var(--acc);font-variant-numeric:tabular-nums}
+.ln .lm{grid-column:1/-1;color:var(--mut);font-size:.85rem;overflow-wrap:anywhere}
+.ask{margin:6px 0}.ask:disabled{opacity:.6}
+#answer p{margin:.2em 0}
+#pvbar{display:flex;align-items:center;gap:8px;justify-content:space-between;background:var(--card);border:1px solid var(--acc);border-radius:8px;padding:8px 12px;margin:6px 0;font-size:.9rem;overflow-wrap:anywhere}
+#pvbar[hidden]{display:none}
+#pvbar button{width:auto;flex:none;padding:6px 10px}
+#pvtxt b{color:var(--acc)}
+.evl{display:block;margin-top:.5em;font-variant-numeric:tabular-nums}

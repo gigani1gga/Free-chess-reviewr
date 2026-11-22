@@ -71,6 +71,7 @@ const clean = (p, allow = []) => {
 };
 
 async function test(name, fn) {
+  if (process.env.E2E_ONLY && !new RegExp(process.env.E2E_ONLY).test(name)) return; // e.g. E2E_ONLY='coach|Ask' while developing
   const t0 = Date.now();
   try { await fn(); results.push([true, name]); console.log(`PASS  ${name}  (${Date.now() - t0} ms)`); }
   catch (e) { results.push([false, name, e]); console.log(`FAIL  ${name}\n      ${e.message.split('\n')[0]}`); }
@@ -151,6 +152,126 @@ await test('navigation: buttons, keyboard, flip, graph click', async () => {
   const sq = await page.$$eval('#board .sq', els => els.map(e => e.querySelector('img') ? 1 : 0).join(''));
   eq(sq.length, 64, 'board draws every square');
   clean(problems);
+  await ctx.close();
+});
+
+await test('coach: a blunder shows Stockfish\'s answer and a better line; both can be played on the board', async () => {
+  const { page, problems, ctx } = await newPage();
+  await review(page, { pgn: SCHOLAR, depth: 12 });
+  await page.click('#moves button[data-p="6"]'); // 3...Nf6??
+  const card = await page.textContent('#card');
+  ok(/White answers Qxf7#|allows mate|forced mate/i.test(card), 'card explains the punishment: ' + card);
+  ok(/Eval .* → .*White/.test(card), 'card shows the eval before → after: ' + card);
+  eq(await page.locator('#lines button.ln').count(), 2, 'answer line + better line');
+  const first = await page.textContent('#lines button.ln:nth-child(1)');
+  ok(/Stockfish’s answer/.test(first) && /3…Nf6 4\.Qxf7#/.test(first), 'answer line text: ' + first);
+  ok(/Better line/.test(await page.textContent('#lines button.ln:nth-child(2)')), 'second is the better line');
+  eq(await page.isHidden('#pvbar'), true, 'no preview yet');
+
+  await page.click('#lines button.ln:nth-child(1)');
+  eq(await page.isVisible('#pvbar'), true, 'preview bar shown');
+  ok(/Stockfish’s answer/.test(await page.textContent('#pvtxt')), 'preview names the line');
+  const sqAt = sel => page.$$eval('#board .sq', els => els.map(e => (e.querySelector('img') ? 1 : 0)).join(''));
+  const afterNf6 = await sqAt();
+  await page.click('#next');                       // plays 4.Qxf7# inside the preview, the game position is untouched
+  ok((await sqAt()) !== afterNf6, 'next plays the next move of the line');
+  eq(await page.getAttribute('#moves button.on', 'data-p'), '6', 'game selection unchanged while previewing');
+  await page.keyboard.press('ArrowLeft');
+  eq(await sqAt(), afterNf6, 'ArrowLeft steps back inside the line');
+  await page.click('#last');
+  ok(/Qxf7#/.test(await page.textContent('#pvtxt')), 'last shows the final move');
+  await page.click('#flip');
+  eq(await page.isVisible('#pvbar'), true, 'flipping keeps the preview');
+  await page.keyboard.press('Escape');
+  eq(await page.isHidden('#pvbar'), true, 'Escape leaves the preview');
+  eq(await page.getAttribute('#moves button.on', 'data-p'), '6', 'back on the same game move');
+
+  await page.click('#lines button.ln:nth-child(2)');
+  ok(/Better line/.test(await page.textContent('#pvtxt')), 'better line previews');
+  await page.click('#pvexit');
+  eq(await page.isHidden('#pvbar'), true, 'Back to game button leaves the preview');
+  await page.click('#moves button[data-p="1"]');
+  eq(await page.isHidden('#pvbar'), true, 'choosing another move leaves the preview');
+  clean(problems);
+  await ctx.close();
+});
+
+await test('coach: a good move gets reasons, a mating move never says "missed mate"', async () => {
+  const { page, problems, ctx } = await newPage();
+  await review(page, { pgn: SCHOLAR, depth: 12 });
+  await page.click('#moves button[data-p="7"]'); // 4.Qxf7#
+  const card = await page.textContent('#card');
+  ok(/checkmate/i.test(card) && !/missed mate|forced mate in/i.test(card), 'mating move card: ' + card);
+  eq(await page.locator('#lines button.ln').count(), 1, 'a best move shows only its own line');
+  await page.click('#first');
+  eq(await page.locator('#lines button.ln').count(), 0, 'the start position has no lines');
+  clean(problems);
+  await ctx.close();
+});
+
+await test('Ask Stockfish: deeper search with 3 lines, then MultiPV goes back; lines can be played; game-over position has nothing to ask', async () => {
+  const { page, workers, problems, ctx } = await newPage();
+  await review(page, { pgn: RUY, depth: 12 });
+  await page.click('#moves button[data-p="4"]');
+  const goBefore = (await workers())[0].cmds.filter(c => c.startsWith('go ')).length;
+  await page.click('#ask');
+  await page.waitForSelector('#answer button.ln', { timeout: 20000 });
+  const n = await page.locator('#answer button.ln').count();
+  ok(n >= 2 && n <= 3, 'between 2 and 3 candidate lines, got ' + n);
+  const cmds = (await workers())[0].cmds;
+  const i3 = cmds.lastIndexOf('setoption name MultiPV value 3'), i2 = cmds.lastIndexOf('setoption name MultiPV value 2');
+  ok(i3 > 0 && i2 > i3, 'MultiPV 3 for the question, then restored to 2: ' + cmds.slice(-6).join(' / '));
+  ok(cmds.filter(c => c.startsWith('go ')).length === goBefore + 1, 'exactly one extra search');
+  ok(cmds.includes('go depth 16'), 'asks deeper than the review (depth 12 + 4)');
+  eq(await page.isEnabled('#ask'), true, 'button usable again');
+  eq(await page.textContent('#ask'), 'Ask Stockfish what it would play here', 'button label restored');
+  await page.click('#answer button.ln:nth-child(2)');
+  eq(await page.isVisible('#pvbar'), true, 'an answer line can be played on the board');
+  await page.keyboard.press('Escape');
+  await page.click('#next');                       // another position: the old answer must be gone
+  eq(await page.locator('#answer button.ln').count(), 0, 'answer disappears when the position changes');
+  await page.click('#ask');
+  await page.waitForSelector('#answer button.ln');
+  await page.click('#last');
+  await page.click('#ask');
+  await page.waitForFunction(() => document.getElementById('ask').disabled === false);
+  clean(problems);
+  await ctx.close();
+});
+
+await test('Ask Stockfish on a finished game (checkmate): says so and never sends a search', async () => {
+  const { page, workers, problems, ctx } = await newPage();
+  await review(page, { pgn: SCHOLAR, depth: 12 });
+  await page.click('#last');
+  const before = (await workers())[0].cmds.length;
+  await page.click('#ask');
+  await page.waitForFunction(() => /game is over/i.test(document.getElementById('answer').textContent));
+  eq((await workers())[0].cmds.length, before, 'no engine traffic for a finished game');
+  clean(problems);
+  await ctx.close();
+});
+
+await test('Ask Stockfish: an engine that stops answering gives a clear error, and the next review starts a fresh engine', async () => {
+  const { page, workers, problems, ctx } = await newPage({ init: [SCALE_TIMEOUTS] });
+  await review(page, { pgn: SCHOLAR, depth: 12 });
+  // From now on the worker swallows searches (like a hung engine) while still answering the handshake.
+  await page.evaluate(() => {
+    const W = window.Worker.prototype, pm = W.postMessage;
+    window.__restore = () => { W.postMessage = pm; };
+    W.postMessage = function (m, ...r) { if (typeof m === 'string' && m.startsWith('go ')) return; return pm.call(this, m, ...r); };
+  });
+  await page.click('#moves button[data-p="2"]');
+  await page.click('#ask');
+  await page.waitForFunction(() => /⚠/.test(document.getElementById('answer').textContent), null, { timeout: 15000 });
+  ok(/Stockfish did not respond/.test(await page.textContent('#answer')), await page.textContent('#answer'));
+  eq(await page.isEnabled('#ask'), true, 'ask button usable again');
+  eq(await page.isEnabled('#go'), true, 'review button usable again');
+  eq((await workers())[0].terminated, true, 'the untrustworthy worker was thrown away');
+  await page.evaluate(() => window.__restore()); // the engine behaves again: asking once more starts a fresh worker and works
+  await page.click('#ask');
+  await page.waitForSelector('#answer button.ln', { timeout: 15000 });
+  eq((await workers()).length, 2, 'a fresh worker was started for the next question');
+  ok(problems.pageerrors.length === 0, 'no page errors: ' + problems.pageerrors.join());
   await ctx.close();
 });
 

@@ -44,8 +44,8 @@ export function tags({ m, b, a, drop, wb, wa, cls }) {
   const t = [];
   const pov = x => (x == null ? null : m.color === 'w' ? x : -x);
   const bm = pov(b.mate), am = pov(a.mate);
-  if (a.over === 'mate') t.push(['mated', {}]);
-  if (bm > 0 && !(am > 0)) t.push(['missMate', { n: bm === 1 ? 'one' : bm }]);
+  if (a.over === 'mate') t.push(['mated', {}]); // the move itself mates: nothing was missed
+  else if (bm > 0 && !(am > 0)) t.push(['missMate', { n: bm === 1 ? 'one' : bm }]);
   else if (am < 0 && !(bm < 0)) t.push(['allowMate', { n: am === -1 ? 'one' : -am }]);
 
   if (drop >= 5) {
@@ -96,7 +96,7 @@ const T = {
 const BETTER = ['Best was {best}.', 'The engine preferred {best}.', '{best} was the move.', '{best} was the better try.'];
 const STATE = [[85, 'completely winning'], [65, 'clearly better'], [55, 'slightly better'], [45, null], [35, 'slightly worse'], [15, 'clearly worse'], [0, 'completely lost']];
 
-export function explain({ m, cls, tg, bestSan, wa, i }) {
+export function explain({ m, cls, tg, bestSan, wa, i, extra = {} }) {
   let s = i * 7919 + 13; // seeded, so the same game always reads the same
   const rnd = () => { s = (s * 1664525 + 1013904223) >>> 0; return s / 4294967296; };
   const pick = arr => arr[Math.floor(rnd() * arr.length)];
@@ -105,7 +105,14 @@ export function explain({ m, cls, tg, bestSan, wa, i }) {
   if (tg.some(t => t[0] === 'mated')) return fill(pick(T.mated));
   const out = [fill(pick(P[cls]))];
   tg.slice(0, 2).forEach(([k, v]) => out.push(fill(pick(T[k]), v)));
-  if (bestSan && BAD.includes(cls)) out.push(fill(pick(BETTER)));
+  // Sentences checked against Stockfish's own lines (coach.js): what the move does, how the engine answers, what was better.
+  (extra.why || []).forEach(x => out.push(x));
+  if (extra.reply) out.push(extra.reply);
+  if (bestSan && BAD.includes(cls)) {
+    out.push(fill(pick(BETTER)));
+    if (extra.better) out.push(extra.better);
+  }
+  if (extra.slight) out.push(extra.slight);
   if (['mistake', 'miss', 'blunder', 'brilliant'].includes(cls)) {
     const st = STATE.find(x => wa >= x[0])[1];
     out.push(st ? `${me} is now ${st}.` : 'The position is now roughly equal.');

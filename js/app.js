@@ -1,12 +1,12 @@
 // Entry point: reads the form, loads the game, runs the engine, hands the review to the UI.
 import { loadGame } from './fetchgame.js';
 import { createPool, disposePool } from './engine.js';
-import { parseGame, analyseAll, buildReview } from './analysis.js';
+import { parseGame, analyseAll, buildReview, explore } from './analysis.js';
 import { initUI, showReview, hideReview } from './ui.js';
 import { keepEngineCached } from './offline.js';
 import { $ } from './util.js';
 
-let pool = null, busy = false;
+let pool = null, busy = false, lastKind = 'best', lastDepth = 16;
 const cacheReady = keepEngineCached(); // never rejects
 const ENGINE_NOTE = { best: 'Downloading Stockfish 19 (about 94 MB the first time, then cached)…', fast: 'Starting Stockfish 19 Lite…' };
 
@@ -22,9 +22,10 @@ async function run() {
     if (!raw) throw new Error('Paste a game link first.');
 
     status('Finding your game…', 2);
-    const game = parseGame(await loadGame(raw, $('user').value.trim()));
+    const game = parseGame(await loadGame(raw, $('user').value.trim(), t => status(t, 2)));
 
-    const kind = $('strength').value;
+    const kind = lastKind = $('strength').value;
+    lastDepth = +$('depth').value;
     if (pool && pool[0].kind !== kind) { disposePool(pool); pool = null; }
     if (!pool) {
       status(ENGINE_NOTE[kind], 4);
@@ -47,6 +48,24 @@ async function run() {
   }
 }
 
-initUI();
+// "Ask Stockfish": a deeper search of the position on screen. Shares the engine with the review, so never at the same time.
+async function ask(fen) {
+  if (busy) throw new Error('Wait for the current review to finish.');
+  busy = true;
+  $('go').disabled = true;
+  try {
+    if (!pool) pool = await createPool(lastKind);
+    return await explore(pool[0], fen, Math.min(22, lastDepth + 4), 3);
+  } catch (e) {
+    // After a timeout or crash the worker can't be trusted; the next question starts a fresh one.
+    if (pool) { disposePool(pool); pool = null; }
+    throw e;
+  } finally {
+    busy = false;
+    $('go').disabled = false;
+  }
+}
+
+initUI({ ask });
 $('go').addEventListener('click', run);
 $('link').addEventListener('keydown', e => { if (e.key === 'Enter') run(); });

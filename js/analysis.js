@@ -2,6 +2,7 @@
 import { Chess } from '../vendor/chess.js';
 import { winPct, accuracy, classify, sacrifice, tags, explain } from './review.js';
 import { BAD } from './meta.js';
+import { coach, replay, mkLine } from './coach.js';
 import { recall, remember } from './store.js';
 
 const cache = new Map(); // fen+depth -> Promise<position result>, so repeated positions/games are free
@@ -99,8 +100,25 @@ export function buildReview({ headers, moves, fens }, pos) {
       try { bestSan = new Chess(b.fen).move({ from: b.best.slice(0, 2), to: b.best.slice(2, 4), promotion: b.best[4] }).san; } catch { /* ignore */ }
     }
     const tg = tags({ m, b, a, drop, wb, wa, cls });
-    return { m, cls, tags: tg.map(t => t[0]), best: isBest ? null : b.best, text: explain({ m, cls, tg, bestSan, wa, i }) };
+    // What Stockfish says about this move: its answer, its own choice, and reasons checked against those lines.
+    let extra = { why: [], lines: [], ev: [] };
+    try { extra = coach({ m, b, a, cls, isBest, tg }); } catch { /* the review still works without the extra reasons */ }
+    return { m, cls, tags: tg.map(t => t[0]), best: isBest ? null : b.best, lines: extra.lines, ev: extra.ev, text: explain({ m, cls, tg, bestSan, wa, i, extra }) };
   });
   const avg = xs => (xs.length ? xs.reduce((x, y) => x + y, 0) / xs.length : 0);
   return { headers, items, pos, acc: { w: avg(acc.w), b: avg(acc.b) }, cnt };
+}
+
+// "Ask Stockfish": a deeper look at one position with a few candidate moves, each with the line the engine expects.
+// Scores come back from the side to move's view; like everything else here they are converted to White's.
+export async function explore(eng, fen, depth, n = 3) {
+  const c = new Chess(fen), s = c.turn() === 'w' ? 1 : -1;
+  if (c.isGameOver()) return [];
+  const raw = await eng.explore(fen, depth, n);
+  return raw.map(l => {
+    const mate = l.mate != null ? l.mate * s : null, cp = l.cp != null ? l.cp * s : null;
+    const win = mate != null ? (mate > 0 ? 100 : 0) : winPct(cp);
+    const steps = replay(fen, l.pv, 10);
+    return { ...mkLine(steps[0]?.san || '?', fen, steps, { mate, cp, win }), win };
+  }).filter(l => l.steps.length);
 }

@@ -12,8 +12,8 @@ Real Stockfish and npm are not available in the sandbox this was written in, so 
 | `build-site.mjs` | builds a copy of the deployed site (same folders as the workflow) | |
 | `server.mjs` | serves it like GitHub Pages: sub-path, 10-minute cache, no COOP/COEP headers | |
 | `workflow-test.py` | runs the real script blocks from `deploy.yml` with fake `npm`/`npx`/`curl` against a mock `stockfish@19.0.1` package | file names taken from the package README |
-| `e2e.mjs` | the real app in real Chrome | |
-| `unit.mjs` | grading maths and analysis logic | |
+| `e2e.mjs` | the real app in real Chrome (incl. playing Stockfish's lines on the board and "Ask Stockfish"). `E2E_ONLY='coach|Ask' node e2e.mjs` runs just the tests whose name matches | |
+| `unit.mjs` | grading maths, analysis logic, and `coach.js` (reasons and lines built from the engine's own lines: replay, material outcome, forks, rescues, mate wording) | positions are hand-made, so each expected sentence can be checked by eye |
 
 What it can NOT tell you: how fast or how strong the real Stockfish 19 is, whether a phone has enough memory for the 94 MB build,
 or that the real npm package has exactly the layout the README describes. Those need one real deploy.

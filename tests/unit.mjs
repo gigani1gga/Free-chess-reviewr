@@ -165,5 +165,72 @@ const mateEng = { kind: 'mate-test', async analyze(fen) { return fen.split(' ')[
 const mpos = await analyseAll([mateEng], game.fens, 16, () => {});
 check('mate scores: White mating = 100% for White; Black being mated = 100% for White', mpos[0].win === 100 && mpos[1].win === 100 && mpos[0].mate === 2 && mpos[1].mate === 2, JSON.stringify(mpos.map(p => [p.mate, p.win])));
 
+// ---- coach: reasons and lines built from the engine's own lines --------------------------------------------------------
+{
+  const { replay, fmtMoves, fmtLine, outcome, fragments, coach } = await import(path.join(site, 'coach.js'));
+  const { tags, explain } = await import(path.join(site, 'review.js'));
+  const START = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
+  const step = (fen, uci) => replay(fen, [uci])[0];
+
+  check('replay: stops quietly at the first illegal move', replay(START, ['e2e4', 'e7e5', 'zzzz', 'g1f3']).length === 2);
+  check('replay: empty / missing line gives nothing', replay(START, []).length === 0 && replay(START, undefined).length === 0);
+  check('fmtMoves: numbering from White', fmtMoves(START, replay(START, ['e2e4', 'e7e5', 'g1f3'])).join(' ') === '1.e4 e5 2.Nf3');
+  const AFTER_E4 = 'rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1';
+  check('fmtMoves: a line that starts with Black uses "1…" and numbers on correctly', fmtLine(AFTER_E4, replay(AFTER_E4, ['e7e5', 'g1f3', 'b8c6'])) === '1…e5 2.Nf3 Nc6');
+
+  const D5 = 'rnbqkbnr/ppp1pppp/8/3p4/4P3/8/PPPP1PPP/RNBQKBNR w KQkq d6 0 2';
+  check('outcome: capture + recapture is an even trade', outcome(replay(D5, ['e4d5', 'd8d5', 'b1c3']), 'w').net === 0);
+  check('outcome: a capture the line cuts off before any recapture is NOT counted as a win', outcome(replay(D5, ['e4d5']), 'w').net === 0);
+  check('outcome: a pawn won and held counts', outcome(replay(D5, ['e4d5', 'g8f6', 'b1c3']), 'w').net === 1);
+  check('outcome: seen from the other side the sign flips', outcome(replay(D5, ['e4d5', 'g8f6', 'b1c3']), 'b').net === -1);
+
+  const FORK = 'r3k3/8/8/1N6/8/8/8/4K3 w - - 0 1';
+  const forkTxt = fragments(step(FORK, 'b5c7')).join(' | ');
+  check('fragments: a knight check that also hits the rook is a fork', /attacks the king and the rook at once/.test(forkTxt) && /gives check/.test(forkTxt), forkTxt);
+  const FREE = '4k3/8/8/3n4/8/8/3R4/4K3 w - - 0 1';
+  check('fragments: taking an unguarded piece says so', fragments(step(FREE, 'd2d5')).join().includes('wins the knight on d5 for free'), fragments(step(FREE, 'd2d5')).join());
+  const SC = 'r1bqkb1r/pppp1ppp/2n2n2/4p2Q/2B1P3/8/PPPP1PPP/RNB1K1NR w KQkq - 4 4';
+  check('fragments: mate', fragments(step(SC, 'h5f7')).join() === 'gives checkmate');
+  const LOOSE = '4k3/8/8/3p4/4N3/8/8/4K3 w - - 0 1';
+  check('fragments: moving a attacked knight to safety is a rescue', fragments(step(LOOSE, 'e4g3')).join().includes('saves the knight'), fragments(step(LOOSE, 'e4g3')).join());
+  check('fragments: a pointless pawn move claims nothing', fragments(step(START, 'a2a3')).length === 0);
+  check('fragments: castling and development are named', fragments(step('r1bqk2r/pppp1ppp/2n2n2/2b1p3/2B1P3/5N2/PPPP1PPP/RNBQK2R w KQkq - 6 5', 'e1g1')).join() === 'castles to safety'
+    && fragments(step(START, 'g1f3')).join() === 'develops the knight');
+
+  // Scholar's mate: 3...Nf6?? allows Qxf7#. The card must say how the engine answers, and offer both lines.
+  const SCH = 'r1bqkb1r/pppp1ppp/2n2n2/4p2Q/2B1P3/8/PPPP1PPP/RNB1K1NR w KQkq - 4 4';
+  const B4 = 'r1bqkbnr/pppp1ppp/2n5/4p2Q/2B1P3/8/PPPP1PPP/RNB1K1NR b KQkq - 3 3'; // before 3...Nf6 (queen already on h5)
+  const nf6 = step(B4, 'g8f6');
+  const bpos = { fen: B4, lines: [{ cp: 0, win: 50, pv: ['d8e7', 'h5e5'] }, { cp: -50, win: 45, pv: ['g7g6'] }] };
+  const apos = { fen: nf6.after, lines: [{ mate: 1, win: 100, pv: ['h5f7'] }], mate: 1, win: 100 };
+  const cb = coach({ m: nf6, b: bpos, a: apos, cls: 'blunder', isBest: false, tg: [] });
+  check('coach: a blunder says how Stockfish answers (mate)', /White answers Qxf7#, which gives checkmate\./.test(cb.reply || ''), String(cb.reply));
+  check('coach: two replayable lines — the engine\'s answer and a better line', cb.lines.length === 2 && cb.lines[1].label === 'Better line' && cb.lines[1].moves[0] === '3…Qe7', JSON.stringify(cb.lines.map(l => l.moves)));
+  check('coach: the answer line starts with the move played and continues with the reply', cb.lines[0].moves.join(' ') === '3…Nf6 4.Qxf7#', cb.lines[0].moves.join(' '));
+  check('coach: lines are plain data (no chess.js objects), each step has its position', cb.lines.every(l => l.steps.every(s => typeof s.fen === 'string' && typeof s.san === 'string')));
+  const tg = tags({ m: nf6, b: { ...bpos, mate: null, cp: 0 }, a: { ...apos, cp: null }, drop: 50, wb: 50, wa: 0, cls: 'blunder' });
+  const txt = explain({ m: nf6, cls: 'blunder', tg, bestSan: cb.bestSan, wa: 0, i: 5, extra: cb });
+  check('explain: the sentence pieces from coach are used and the better move is named', /Best was Qe7|Qe7 was|engine preferred Qe7|Qe7/.test(txt), txt);
+
+  // A "great" move explains how much worse the alternative was.
+  const e4 = step(START, 'e2e4');
+  const cg = coach({ m: e4, b: { fen: START, lines: [{ cp: 30, win: 53, pv: ['e2e4', 'e7e5'] }, { cp: 10, win: 51, pv: ['d2d4'] }] }, a: { fen: e4.after, lines: [{ cp: 30, win: 47, pv: ['e7e5'] }] }, cls: 'great', isBest: true, tg: [] });
+  check('coach: a great move quotes the next best alternative', cg.why.some(s => /next best move, d4, only gives \+0\.1/.test(s)), cg.why.join(' | '));
+  check('coach: when the move is the engine\'s first line, its own line is shown', cg.lines.length === 1 && cg.lines[0].label === 'Stockfish’s line' && cg.lines[0].moves.join(' ') === '1.e4 e5', JSON.stringify(cg.lines));
+
+  // Robustness: no lines at all (engine gave nothing), or a terminal position after the move.
+  const empty = coach({ m: e4, b: { fen: START, lines: [] }, a: { fen: e4.after, lines: [], over: 'draw', win: 50 }, cls: 'good', isBest: false, tg: [] });
+  {
+  const { fmtEval } = await import(path.join(site, 'util.js'));
+  check('fmtEval: tiny scores read 0.0, never -0.0; signs and mates are kept', fmtEval({ cp: -4 }) === '0.0' && fmtEval({ cp: 4 }) === '0.0' && fmtEval({ cp: 120 }) === '+1.2' && fmtEval({ cp: -55 }) === '-0.6' && fmtEval({ mate: -3 }) === '-M3' && fmtEval({ mate: 2 }) === 'M2');
+}
+check('coach: missing engine lines do not throw and give no invented reasons', empty.reply === null && empty.better === null && empty.lines.length === 1);
+
+  // The mating move itself is never also reported as a "missed mate".
+  const mt = step(SC, 'h5f7');
+  const mtags = tags({ m: mt, b: { fen: SC, mate: 1, cp: null }, a: { fen: mt.after, over: 'mate', win: 100 }, drop: 0, wb: 100, wa: 100, cls: 'best' });
+  check('tags: delivering mate is "mated" only, not also "missMate"', mtags.length === 1 && mtags[0][0] === 'mated', JSON.stringify(mtags));
+}
+
 console.log(fails ? `\n${fails} unit check(s) FAILED` : '\nall unit checks passed');
 process.exit(fails ? 1 : 0);
