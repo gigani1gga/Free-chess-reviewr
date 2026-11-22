@@ -37,9 +37,18 @@
 
   <section id="review" hidden>
     <div id="players"></div>
-    <div class="boardrow">
-      <div id="evb"><div id="fill"></div></div>
-      <div id="board"></div>
+    <div id="stage">
+      <div class="boardrow">
+        <div id="evb"><div id="fill"></div></div>
+        <div id="board"></div>
+      </div>
+      <div class="nav">
+        <button id="first" aria-label="First position" title="First position"><span class="ic" style="--i:url(icons/skip-back.svg)" aria-hidden="true"></span></button>
+        <button id="prev" aria-label="Previous move" title="Previous move"><span class="ic" style="--i:url(icons/chevron-left.svg)" aria-hidden="true"></span></button>
+        <button id="next" aria-label="Next move" title="Next move"><span class="ic" style="--i:url(icons/chevron-right.svg)" aria-hidden="true"></span></button>
+        <button id="last" aria-label="Last position" title="Last position"><span class="ic" style="--i:url(icons/skip-forward.svg)" aria-hidden="true"></span></button>
+        <button id="flip" aria-label="Flip board" title="Flip board"><span class="ic" style="--i:url(icons/arrow-up-down.svg)" aria-hidden="true"></span></button>
+      </div>
     </div>
     <div id="ev" class="mut"></div>
     <div id="engine" class="mut"></div>
@@ -48,13 +57,6 @@
     <div id="lines"></div>
     <button id="ask" class="ask">Ask Stockfish what it would play here</button>
     <div id="answer" aria-live="polite"></div>
-    <div class="nav">
-      <button id="first" aria-label="First position" title="First position"><span class="ic" style="--i:url(icons/skip-back.svg)" aria-hidden="true"></span></button>
-      <button id="prev" aria-label="Previous move" title="Previous move"><span class="ic" style="--i:url(icons/chevron-left.svg)" aria-hidden="true"></span></button>
-      <button id="next" aria-label="Next move" title="Next move"><span class="ic" style="--i:url(icons/chevron-right.svg)" aria-hidden="true"></span></button>
-      <button id="last" aria-label="Last position" title="Last position"><span class="ic" style="--i:url(icons/skip-forward.svg)" aria-hidden="true"></span></button>
-      <button id="flip" aria-label="Flip board" title="Flip board"><span class="ic" style="--i:url(icons/arrow-up-down.svg)" aria-hidden="true"></span></button>
-    </div>
     <div id="graph"></div>
     <div id="acc"></div>
     <div id="moves"></div>

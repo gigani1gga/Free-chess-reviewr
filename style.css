@@ -74,3 +74,8 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
 #pvbar button{width:auto;flex:none;padding:6px 10px}
 #pvtxt b{color:var(--acc)}
 .evl{display:block;margin-top:.5em;font-variant-numeric:tabular-nums}
+/* The board and its buttons stay on screen while the explanation scrolls underneath, so you never scroll back to press next. */
+#stage{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--bg);padding:6px 0;border-bottom:1px solid var(--line)}
+#stage .boardrow,#stage .nav{max-width:calc(42vh + 18px);margin-inline:auto}
+@supports (height:1dvh){#stage .boardrow,#stage .nav{max-width:calc(42dvh + 18px)}}
+#stage .nav{margin-top:6px}

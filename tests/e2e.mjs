@@ -275,6 +275,23 @@ await test('Ask Stockfish: an engine that stops answering gives a clear error, a
   await ctx.close();
 });
 
+await test('phone: the board and the move buttons stay on screen together while the explanation scrolls', async () => {
+  const { page, problems, ctx } = await newPage();
+  await page.setViewportSize({ width: 390, height: 700 });
+  await review(page, { pgn: SCHOLAR, depth: 12 });
+  await page.click('#moves button[data-p="6"]');
+  await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight)); // as far down as the page goes
+  const seen = await page.evaluate(() => {
+    const vis = id => { const r = document.getElementById(id).getBoundingClientRect(); return r.top >= 0 && r.bottom <= innerHeight; };
+    return { board: vis('board'), next: vis('next'), prev: vis('prev'), flip: vis('flip') };
+  });
+  ok(seen.board && seen.next && seen.prev && seen.flip, 'board and buttons visible together: ' + JSON.stringify(seen));
+  await page.click('#prev');                         // pressing works without scrolling back
+  eq(await page.getAttribute('#moves button.on', 'data-p'), '5', 'button pressed from the scrolled-down page');
+  clean(problems);
+  await ctx.close();
+});
+
 await test('lite on a phone: 3 workers share the game, Hash 16, status messages', async () => {
   const { page, workers, problems, ctx } = await newPage({ init: [CORES(8), MOBILE] });
   eq(await review(page, { pgn: RUY, depth: 12, strength: 'fast' }), 'Done.', 'status');
