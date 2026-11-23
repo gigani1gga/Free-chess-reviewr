@@ -207,7 +207,7 @@ export function coach({ m, b, a, cls, isBest, tg }) {
   const after = ownSteps.length ? ownSteps : [m, ...replySteps];
 
   const lines = [];
-  lines.push(mkLine(isBest ? 'Stockfish’s line' : 'Stockfish’s answer', b.fen, after, ownSteps.length ? own : a));
+  lines.push(mkLine(isBest ? 'Stockfish’s line' : `Stockfish’s line after ${m.san}`, b.fen, after, ownSteps.length ? own : a));
   if (!isBest && bestSteps.length) lines.push(mkLine('Better line', b.fen, bestSteps, bestLine));
 
   const bad = ['inaccuracy', 'mistake', 'miss', 'blunder'].includes(cls);
@@ -228,19 +228,26 @@ export function coach({ m, b, a, cls, isBest, tg }) {
     }
     if (bestSan && (cls === 'excellent' || cls === 'good')) slight = `Stockfish slightly preferred ${bestSan} (${fmtEval(bestLine)}).`;
   } else {
-    if (!tagKeys.some(k => ['hang', 'trade', 'allowMate', 'mated'].includes(k)) && replySteps[0]) {
-      const r = fragments(replySteps[0], 2, PUNISH);
+    // Everything below reads ONE line (`after`, the engine's own continuation of the played move) and is judged against
+    // the best line, so a pawn that Stockfish's best move would also lose is never blamed on this move.
+    const first = after[1] || null;
+    if (!tagKeys.some(k => ['hang', 'trade', 'allowMate', 'mated'].includes(k)) && first) {
+      const r = fragments(first, 2, PUNISH);
       const o = outcome(after, me);
-      let s = `${opp} answers ${replySteps[0].san}`;
-      s += r.length ? `, which ${join(r)}` : '';
-      const wins = !o.mate && o.net <= -1; // a line that ends in mate needs no material count
-      s += wins ? `${r.length ? ', and' : ' and'} wins ${material(o.net)}` : '';
-      if (r.length || wins) reply = s + '.';
+      const base = n => (bestSteps.length ? outcome(bestSteps.slice(0, n), me).net : 0);
+      const lostAll = base(LINE_STEPS) - o.net;
+      const lostSoon = base(4) - outcome(after.slice(0, 4), me).net; // inside the first moves, so the reply really causes it
+      const soon = !o.mate && lostSoon >= 1;
+      if (r.length || soon) {
+        reply = `${opp} answers ${first.san}` + (r.length ? `, which ${join(r)}` : '') + (soon ? `${r.length ? ', and' : ' and'} wins ${material(lostSoon)}` : '') + '.';
+      } else if (!o.mate && lostAll >= 1) {
+        reply = `Stockfish’s line ends with ${opp} ${material(lostAll)} up.`; // later in the line: say so, don't pin it on the reply
+      }
     }
     const bf = fragments(bestSteps[0]);
     const ob = outcome(bestSteps, me);
     if (bf.length) better = `It ${join(bf)}.`;
     else if (ob.net >= 1 && ob.net > outcome(after, me).net) better = `That line wins ${material(ob.net)}.`;
   }
-  return { why, reply, better, slight, lines, bestSan, ev: [fmtEval(b), fmtEval(a)] };
+  return { why, reply, better, slight, lines, bestSan, ev: [fmtEval(b), fmtEval(ownSteps.length ? own : a)] };
 }

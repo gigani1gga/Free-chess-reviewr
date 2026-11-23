@@ -222,6 +222,21 @@ check('mate scores: White mating = 100% for White; Black being mated = 100% for 
   check('coach: a great move quotes the next best alternative', cg.why.some(s => /next best move, d4, only gives \+0\.1/.test(s)), cg.why.join(' | '));
   check('coach: when the move is the engine\'s first line, its own line is shown', cg.lines.length === 1 && cg.lines[0].label === 'Stockfish’s line' && cg.lines[0].moves.join(' ') === '1.e4 e5', JSON.stringify(cg.lines));
 
+  // Regression (Hikaru–Carlsen 30...c5): the pawn only falls many moves into the line, and Rh4 was the engine's top choice.
+  // The card must not say the quiet reply Kg2 "wins a pawn", must not blame a pawn the best line also loses, and must show
+  // the same eval for the move as the one the grade used (the move's own line), not the separate after-position search.
+  const HB = '8/1pp5/1k1p3p/1p2p2r/1P2P3/P4PRP/2P2K2/8 b - - 0 30';
+  const hc5 = step(HB, 'c7c5');
+  const ownPv = ['c7c5', 'f2g2', 'h5h4', 'g3g6', 'b6c6', 'g2g3', 'h4f4', 'g6h6'];
+  const hb = pv => ({ fen: HB, lines: [{ cp: 0, win: 50, pv }, { cp: 140, win: 63, pv: ownPv }] });
+  const ha = { fen: hc5.after, lines: [{ cp: 220, win: 69, pv: ['f2g2', 'h5h4'] }], cp: 220, win: 69 };
+  const quiet = coach({ m: hc5, b: hb(['h5h4', 'g3g6', 'b6c6', 'f2g3']), a: ha, cls: 'mistake', isBest: false, tg: [] });
+  check('coach: a pawn won deep in the line is not pinned on the quiet reply', !/Kg2 and wins|answers Kg2/.test(quiet.reply || ''), String(quiet.reply));
+  check('coach: the card eval for a move in the engine\'s lines is that line\'s own score', quiet.ev[1] === '+1.4', JSON.stringify(quiet.ev));
+  check('coach: the played move\'s line is named as the line after the move, not "Stockfish\'s answer"', quiet.lines[0].label === 'Stockfish’s line after c5', quiet.lines[0].label);
+  const same = coach({ m: hc5, b: hb(ownPv.slice(1)), a: ha, cls: 'mistake', isBest: false, tg: [] });
+  check('coach: material the best line also loses is not blamed on the move', !/wins a pawn|a pawn up/.test(same.reply || ''), String(same.reply));
+
   // Robustness: no lines at all (engine gave nothing), or a terminal position after the move.
   const empty = coach({ m: e4, b: { fen: START, lines: [] }, a: { fen: e4.after, lines: [], over: 'draw', win: 50 }, cls: 'good', isBest: false, tg: [] });
   {
