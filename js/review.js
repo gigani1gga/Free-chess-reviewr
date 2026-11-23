@@ -56,7 +56,9 @@ export function tags({ m, b, a, drop, wb, wa, cls }) {
       else if (recapture && V[r.m.captured] - V[r.m.piece] >= 2) t.push(['trade', { lost: N[r.m.captured], taker: N[r.m.piece], w: V[r.m.captured] - V[r.m.piece] }]);
     }
     const q = b.best && play(b.fen, b.best);
-    if (q && q.m.captured && V[q.m.captured] >= 3 && q.m.san !== m.san) t.push(['missCap', { piece: N[q.m.captured], sq: q.m.to, taker: N[q.m.piece], w: V[q.m.captured] }]);
+    // Only a capture nobody can answer is a "free" piece; a recaptured one is a trade, and saying it was won would be wrong.
+    const back = q && q.m.captured && q.c.moves({ verbose: true }).some(x => x.to === q.m.to && x.captured);
+    if (q && q.m.captured && V[q.m.captured] >= 3 && q.m.san !== m.san && !back) t.push(['missCap', { piece: N[q.m.captured], sq: q.m.to, taker: N[q.m.piece], w: V[q.m.captured] }]);
     if (wb >= 70 && wa <= 55) t.push(['thrown', {}]);
     else if (wb > 40 && wa <= 25) t.push(['swing', {}]);
   }

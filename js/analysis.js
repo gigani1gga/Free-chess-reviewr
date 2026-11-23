@@ -7,7 +7,13 @@ import { recall, remember } from './store.js';
 
 const cache = new Map(); // fen+depth -> Promise<position result>, so repeated positions/games are free
 
+// Games with other rules (Chess960, Crazyhouse, ...) cannot be replayed by a standard chess engine setup: say so plainly
+// instead of failing with a vague "could not read". "From Position" and "Standard" are normal chess and stay allowed.
+const OTHER_RULES = /960|fischer|crazyhouse|bughouse|antichess|giveaway|atomic|horde|racing|hill|three.?check|3.?check/i;
+
 export function parseGame(pgn) {
+  const variant = /\[Variant\s+"([^"]*)"\]/i.exec(pgn)?.[1];
+  if (variant && OTHER_RULES.test(variant)) throw new Error(`Only standard chess can be reviewed, and this game is ${variant}.`);
   const g = new Chess();
   try { g.loadPgn(pgn); } catch { throw new Error('Could not read that PGN.'); }
   const moves = g.history({ verbose: true });

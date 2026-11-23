@@ -74,7 +74,8 @@ async function fromChessCom(u, hint, say) {
       say(`Searching ${n}’s Chess.com games…`);
       try {
         const data = await get(`https://api.chess.com/pub/player/${n}/games/${y}/${mo}`, 'json');
-        const g = data.games?.find(x => x.url && x.url.includes(id));
+        // Compare whole numbers: a short id must not match inside a longer one (12345678 is not part of 112345678).
+        const g = data.games?.find(x => x.url && x.url.split(/\D+/).includes(id));
         if (g?.pgn) return g.pgn;
       } catch (e) {
         if (e.timeout) throw e; // the site is not answering: stop, don't wait again for every month

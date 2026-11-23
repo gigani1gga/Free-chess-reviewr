@@ -1,7 +1,7 @@
 // Rendering and navigation of a finished review.
 import { drawBoard, preloadPieces } from './board.js';
 import { META, BAD, moveIcon } from './meta.js';
-import { $, esc, fmtEval } from './util.js';
+import { $, esc, fmtEval, moveNo } from './util.js';
 
 // Only draw the red reply when the move itself loses something (not when it merely missed a win).
 const PUNISHED = ['hang', 'trade', 'allowMate'];
@@ -65,14 +65,17 @@ export function showReview(review) {
   $('players').innerHTML = name(h.White || 'White', h.WhiteElo) +
     `<div class="mut">${esc(h.Result || '')}</div>` + name(h.Black || 'Black', h.BlackElo);
 
+  // A side that never moved (a one-move game) has no accuracy: show a dash, not a made-up 0.0.
+  const moved = c => Object.values(cnt[c]).some(Boolean);
   $('acc').innerHTML = ['w', 'b'].map(c =>
-    `<div class="ac"><div class="big">${acc[c].toFixed(1)}</div><small>${c === 'w' ? 'White' : 'Black'} accuracy</small><div class="chips">` +
+    `<div class="ac"><div class="big">${moved(c) ? acc[c].toFixed(1) : '–'}</div><small>${c === 'w' ? 'White' : 'Black'} accuracy</small><div class="chips">` +
     Object.entries(META).filter(([k]) => cnt[c][k])
       .map(([k, m]) => `<span style="--c:${m.color}">${moveIcon(k)}${cnt[c][k]} ${m.label}</span>`).join('') +
     '</div></div>').join('');
 
+  // The number goes before every White move, and before the first move when a game from a position starts with Black.
   $('moves').innerHTML = items.map((it, i) =>
-    (i % 2 === 0 ? `<span class="no">${i / 2 + 1}.</span>` : '') +
+    (it.m.color === 'w' || i === 0 ? `<span class="no">${moveNo(pos[0].fen, i + 1)}${it.m.color === 'w' ? '.' : '…'}</span>` : '') +
     `<button data-p="${i + 1}" style="--c:${META[it.cls].color}" title="${META[it.cls].label}">${esc(it.m.san)}<i>${moveIcon(it.cls)}</i></button>`).join('');
 
   const n = pos.length - 1;
@@ -151,7 +154,7 @@ function go(p) {
   const was = ply;
   ply = Math.max(0, Math.min(n, p));
   if (ply !== was) clearAnswer(); // an answer (or one still being computed) belongs to one position
-  const pos = R.pos[ply], it = R.items[ply - 1];
+  const pos = R.pos[ply], pos0 = R.pos[0], it = R.items[ply - 1];
 
   drawBoard($('board'), pos.fen, {
     flip,
@@ -167,7 +170,7 @@ function go(p) {
 
   $('card').innerHTML = !it
     ? '<p>Step through with the arrows or tap any move below. For each move you get Stockfish’s reasons, the line it expects, and a better line when there was one: tap a line to play it on the board. A green arrow shows what should have been played; a red one shows how the opponent can punish a move. You can also ask Stockfish what it would play in any position.</p>'
-    : `<span class="badge" style="--c:${META[it.cls].color}">${moveIcon(it.cls)}</span><b>${Math.ceil(ply / 2)}${it.m.color === 'w' ? '.' : '…'} ${esc(it.m.san)}</b><p>${esc(it.text)}</p>` +
+    : `<span class="badge" style="--c:${META[it.cls].color}">${moveIcon(it.cls)}</span><b>${moveNo(pos0.fen, ply)}${it.m.color === 'w' ? '.' : '…'} ${esc(it.m.san)}</b><p>${esc(it.text)}</p>` +
       (it.ev?.length ? `<small class="mut evl">Eval ${esc(it.ev[0])} → ${esc(it.ev[1])} (White’s view)</small>` : '');
   $('lines').innerHTML = it && it.lines ? it.lines.map(lineBtn).join('') : '';
 
