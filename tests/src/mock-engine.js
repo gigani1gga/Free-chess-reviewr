@@ -53,6 +53,16 @@ function negamax(s, depth, alpha, beta, ply) {
   return alpha;
 }
 
+// `CONFIG.book` (made by lib/book.mjs, keyed by a hash of these very sources) holds finished root searches for the positions the
+// kit's test games pass through, so the fake engine answers them instantly. Any other position is searched for real.
+const BOOK = CONFIG.book || null;
+const bookKey = (s, d) => C.toFen({ ...s, full: 1 }) + '|' + d;
+function rootSearchBooked(s, depth) {
+  const hit = BOOK && BOOK[bookKey(s, depth)];
+  if (hit) return hit.map(([from, to, promo, sc]) => ({ m: { from, to, promo: promo || undefined }, sc }));
+  return rootSearch(s, depth);
+}
+
 function rootSearch(s, depth) {
   const res = C.legal(s).map(m => ({ m, sc: -negamax(C.apply(s, m), depth - 1, -MATE - 1, MATE + 1, 1) }));
   res.sort((a, b) => b.sc - a.sc);
@@ -81,10 +91,19 @@ const LEGACY = [
   'MultiPV type spin default 1 min 1 max 500', 'UCI_AnalyseMode type check default false', 'UCI_Chess960 type check default false',
 ];
 
-let state = C.parseFen(C.START_FEN), multipv = 1;
+let state = C.parseFen(C.START_FEN), multipv = 1, showWdl = false;
 
-function handle(cmd) {
+// Win/draw/loss per mille from a score, like Stockfish's UCI_ShowWDL: a plausible shape, not its real model.
+const wdlStr = sc => {
+  if (Math.abs(sc) > MATE - 200) return sc > 0 ? ' wdl 1000 0 0' : ' wdl 0 0 1000';
+  const d = Math.round(400 * Math.exp(-((sc / 400) ** 2))), p = 1 / (1 + Math.exp(-sc / 180)), w = Math.round((1000 - d) * p);
+  return ` wdl ${w} ${d} ${1000 - d - w}`;
+};
+
+function handle(cmd, delayed) {
   const [w, ...rest] = cmd.trim().split(/\s+/);
+  // `searchDelay` makes every search take at least that long (a slow phone), so progress, cancelling and races can be tested.
+  if (w === 'go' && CONFIG.searchDelay && !delayed) { setTimeout(() => handle(cmd, true), CONFIG.searchDelay); return; }
   if (w === 'uci') {
     out(`id name ${CONFIG.name}`);
     out('id author the Stockfish developers (see AUTHORS file)');
@@ -95,6 +114,7 @@ function handle(cmd) {
   } else if (w === 'setoption') {
     const m = /^setoption name (.+?)(?: value (.*))?$/.exec(cmd.trim());
     if (m && m[1] === 'MultiPV') multipv = +m[2];
+    if (m && m[1] === 'UCI_ShowWDL') showWdl = m[2] === 'true';
     const known = m && (CONFIG.options === 'legacy' ? LEGACY : MODERN).some(o => o.startsWith(m[1] + ' type'));
     if (m && !known) out(`No such option: ${m[1]}`);
   } else if (w === 'position') {
@@ -102,23 +122,26 @@ function handle(cmd) {
     else state = C.parseFen(C.START_FEN);
   } else if (w === 'go') {
     const d = +(rest[rest.indexOf('depth') + 1] || 12);
+    // `searchmoves a b c` limits the root to those moves (how good is exactly this one?)
+    const sm = rest.indexOf('searchmoves'), only = sm >= 0 ? rest.slice(sm + 1) : null;
+    const pick = r => (only ? r.filter(x => only.includes(uciMove(x.m))) : r);
     if (CONFIG.behavior === 'no-bestmove') { out('info string search started'); return; }
     const t0 = Date.now();
     const cache = {};
     for (let dd = 1; dd <= d; dd++) {
       const sd = Math.min(dd, CONFIG.cap);
-      const res = cache[sd] || (cache[sd] = rootSearch(state, sd));
+      const res = pick(cache[sd] || (cache[sd] = rootSearchBooked(state, sd)));
       if (!res.length) break;
       if (dd === 1) out('info string NNUE evaluation using nn-mock.nnue');
       for (let k = 0; k < Math.min(multipv, res.length); k++) {
         const r = res[k];
-        out(`info depth ${dd} seldepth ${dd + 2} multipv ${k + 1} score ${scoreStr(r.sc)} nodes ${dd * 1000} nps 900000 hashfull 3 tbhits 0 time ${Date.now() - t0} pv ${uciMove(r.m)}`);
+        out(`info depth ${dd} seldepth ${dd + 2} multipv ${k + 1} score ${scoreStr(r.sc)}${showWdl ? wdlStr(r.sc) : ''} nodes ${dd * 1000} nps 900000 hashfull 3 tbhits 0 time ${Date.now() - t0} pv ${uciMove(r.m)}`);
       }
       // A bound line that must be ignored (real engines emit these on aspiration-window fails).
       if (dd === d) out(`info depth ${dd} seldepth ${dd} multipv 1 score cp 9999 lowerbound nodes 5 time 1 pv ${uciMove(res[0].m)}`);
       if (CONFIG.behavior === 'garbage' && dd === d) { out('info depth 1 currmove e2e4 currmovenumber 1'); out(''); }
     }
-    const res = cache[Math.min(d, CONFIG.cap)];
+    const res = pick(cache[Math.min(d, CONFIG.cap)] || []);
     out(res && res.length ? `bestmove ${uciMove(res[0].m)}` : 'bestmove (none)');
   }
   // 'stop', 'ucinewgame', 'quit': nothing to do for a synchronous mock.

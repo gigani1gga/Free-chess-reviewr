@@ -65,17 +65,18 @@ export function showReview(review) {
   $('players').innerHTML = name(h.White || 'White', h.WhiteElo) +
     `<div class="mut">${esc(h.Result || '')}</div>` + name(h.Black || 'Black', h.BlackElo);
 
-  // A side that never moved (a one-move game) has no accuracy: show a dash, not a made-up 0.0.
-  const moved = c => Object.values(cnt[c]).some(Boolean);
   $('acc').innerHTML = ['w', 'b'].map(c =>
-    `<div class="ac"><div class="big">${moved(c) ? acc[c].toFixed(1) : '–'}</div><small>${c === 'w' ? 'White' : 'Black'} accuracy</small><div class="chips">` +
+    `<div class="ac"><div class="big">${acc[c].toFixed(1)}</div><small>${c === 'w' ? 'White' : 'Black'} accuracy</small><div class="chips">` +
     Object.entries(META).filter(([k]) => cnt[c][k])
       .map(([k, m]) => `<span style="--c:${m.color}">${moveIcon(k)}${cnt[c][k]} ${m.label}</span>`).join('') +
     '</div></div>').join('');
 
-  // The number goes before every White move, and before the first move when a game from a position starts with Black.
+  // Move numbers come from the position the game starts in (a game can start with Black to move, or at a later move).
+  const start = pos[0].fen;
+  $('stats').innerHTML = statsHtml(R.stats);
+
   $('moves').innerHTML = items.map((it, i) =>
-    (it.m.color === 'w' || i === 0 ? `<span class="no">${moveNo(pos[0].fen, i + 1)}${it.m.color === 'w' ? '.' : '…'}</span>` : '') +
+    (it.m.color === 'w' ? `<span class="no">${moveNo(start, i + 1)}.</span>` : i === 0 ? `<span class="no">${moveNo(start, 1)}…</span>` : '') +
     `<button data-p="${i + 1}" style="--c:${META[it.cls].color}" title="${META[it.cls].label}">${esc(it.m.san)}<i>${moveIcon(it.cls)}</i></button>`).join('');
 
   const n = pos.length - 1;
@@ -84,6 +85,20 @@ export function showReview(review) {
     `<line x1="0" x2="400" y1="40" y2="40" stroke="#777" stroke-width="1" stroke-dasharray="4 4" vector-effect="non-scaling-stroke"/>` +
     `<line id="gm" y1="0" y2="80" stroke="#e8a33d" stroke-width="2" vector-effect="non-scaling-stroke"/></svg>`;
   go(0);
+}
+
+const pct = x => (x == null ? '–' : x.toFixed(0) + '%');
+// Per player: estimated rating of the game, average centipawn loss and accuracy in each phase.
+function statsHtml(st) {
+  if (!st) return '';
+  const col = c => {
+    const s = st[c];
+    return `<div class="st"><b>${c === 'w' ? 'White' : 'Black'}</b>` +
+      `<div>Game rating <i title="An estimate of how well this game was played, from its accuracy. Not a measured rating.">${s.rating ? '≈ ' + s.rating : '–'}</i></div>` +
+      `<div>Avg. centipawn loss <i>${s.moves ? s.acpl.toFixed(0) : '–'}</i></div>` +
+      `<div>Opening <i>${pct(s.phases.open)}</i> · Middlegame <i>${pct(s.phases.mid)}</i> · Endgame <i>${pct(s.phases.end)}</i></div></div>`;
+  };
+  return col('w') + col('b');
 }
 
 const arrow = (uci, kind) => ({ from: uci.slice(0, 2), to: uci.slice(2, 4), kind });
@@ -154,7 +169,7 @@ function go(p) {
   const was = ply;
   ply = Math.max(0, Math.min(n, p));
   if (ply !== was) clearAnswer(); // an answer (or one still being computed) belongs to one position
-  const pos = R.pos[ply], pos0 = R.pos[0], it = R.items[ply - 1];
+  const pos = R.pos[ply], it = R.items[ply - 1];
 
   drawBoard($('board'), pos.fen, {
     flip,
@@ -170,8 +185,13 @@ function go(p) {
 
   $('card').innerHTML = !it
     ? '<p>Step through with the arrows or tap any move below. For each move you get Stockfish’s reasons, the line it expects, and a better line when there was one: tap a line to play it on the board. A green arrow shows what should have been played; a red one shows how the opponent can punish a move. You can also ask Stockfish what it would play in any position.</p>'
-    : `<span class="badge" style="--c:${META[it.cls].color}">${moveIcon(it.cls)}</span><b>${moveNo(pos0.fen, ply)}${it.m.color === 'w' ? '.' : '…'} ${esc(it.m.san)}</b><p>${esc(it.text)}</p>` +
+    : `<span class="badge" style="--c:${META[it.cls].color}">${moveIcon(it.cls)}</span><b>${moveNo(R.pos[0].fen, ply)}${it.m.color === 'w' ? '.' : '…'} ${esc(it.m.san)}</b><p>${esc(it.text)}</p>` +
       (it.ev?.length ? `<small class="mut evl">Eval ${esc(it.ev[0])} → ${esc(it.ev[1])} (White’s view)</small>` : '');
+  // The conversation with Stockfish behind the grade (only for the moves where it mattered: sacrifices, brilliant, great).
+  const talk = it && it.talk && it.talk.length ? it.talk : null;
+  $('talk').hidden = !talk;
+  $('talkbody').innerHTML = talk ? talk.map(([q, a]) => `<p><b>${esc(q)}</b><br>${esc(a)}</p>`).join('') : '';
+  if (talk && it.cls === 'brilliant') $('talk').open = true;
   $('lines').innerHTML = it && it.lines ? it.lines.map(lineBtn).join('') : '';
 
   // Highlight the current move and keep it visible inside the move list only (never scroll the page).

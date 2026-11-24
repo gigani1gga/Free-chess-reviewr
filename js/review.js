@@ -5,12 +5,29 @@ const V = { p: 1, n: 3, b: 3, r: 5, q: 9, k: 0 };      // material value
 const A = { p: 1, n: 3, b: 3, r: 5, q: 9, k: 100 };    // attacker value (king never captures into defence)
 const N = { p: 'pawn', n: 'knight', b: 'bishop', r: 'rook', q: 'queen', k: 'king' };
 
-export const winPct = cp => 50 + 50 * (2 / (1 + Math.exp(-0.00368208 * cp)) - 1);
-export const accuracy = drop => Math.max(0, Math.min(100, 103.1668 * Math.exp(-0.04354 * drop) - 3.1669));
+import { winPct, accuracy, generosity } from './rating.js';
+export { winPct, accuracy };
 
-export function classify({ drop, isBest, wb, wa, gap, sac, prev }) {
-  if (sac && drop <= 2 && wa >= 50 && wb < 92) return 'brilliant';
-  if (isBest && gap != null && gap >= 12 && wb > 12 && wb < 92 && wa < 97) return 'great';
+// Win-chance bands used to decide whether a move changed the outcome: losing / roughly equal / winning (mover's view).
+const band = w => (w < 35 ? 0 : w < 65 ? 1 : 2);
+
+// All numbers are the mover's expected points (0-100) and drops in expected points, as Chess.com does:
+//   inaccuracy 5, mistake 10, blunder 20 points lost; "excellent" up to 2, "good" up to 5.
+// Optional facts make it Chess.com-like:
+//   book / forced   an opening-book move, or the only legal move: never graded as an error
+//   alt             what the best OTHER move would have given (a sacrifice is not brilliant if you were winning anyway)
+//   recapture       the move just takes back what the opponent took: never brilliant or great
+//   deepOk          false when a deeper look by Stockfish disagrees with a sacrifice
+//   elo             the mover's rating: weaker players get a little more room on brilliant / great
+export function classify({ drop, isBest, wb, wa, gap, sac, prev, alt = null, recapture = false, book = false, forced = false, deepOk = true, elo = 0 }) {
+  if (forced) return 'forced';
+  if (book) return 'book';
+  const g = generosity(elo);
+  if (sac && !recapture && deepOk && drop <= 2 + 5 * g && wa >= 50 - 12 * g && wb < 92 && (alt == null || alt < 90)) return 'brilliant';
+  if (isBest && !recapture && gap != null && wb > 12 && wb < 92 && wa < 97) {
+    if (gap >= 12 - 15 * g) return 'great';                       // the only good move
+    if (gap >= 8 && band(wb) > band(wb - gap)) return 'great';    // the move that turns the game: equal -> winning, losing -> equal
+  }
   if (drop >= 20) return 'blunder';
   if (drop >= 5) return prev >= 10 ? 'miss' : drop >= 10 ? 'mistake' : 'inaccuracy';
   if (isBest || drop <= 0.3) return 'best';
@@ -55,10 +72,12 @@ export function tags({ m, b, a, drop, wb, wa, cls }) {
       if (!recapture && V[r.m.captured] >= 1) t.push(['hang', { piece: N[r.m.captured], sq: r.m.to, taker: N[r.m.piece], w: V[r.m.captured] }]);
       else if (recapture && V[r.m.captured] - V[r.m.piece] >= 2) t.push(['trade', { lost: N[r.m.captured], taker: N[r.m.piece], w: V[r.m.captured] - V[r.m.piece] }]);
     }
+    // The best move was a capture: it is a "free piece" only when nothing can take back, or when taking back still loses material.
     const q = b.best && play(b.fen, b.best);
-    // Only a capture nobody can answer is a "free" piece; a recaptured one is a trade, and saying it was won would be wrong.
-    const back = q && q.m.captured && q.c.moves({ verbose: true }).some(x => x.to === q.m.to && x.captured);
-    if (q && q.m.captured && V[q.m.captured] >= 3 && q.m.san !== m.san && !back) t.push(['missCap', { piece: N[q.m.captured], sq: q.m.to, taker: N[q.m.piece], w: V[q.m.captured] }]);
+    if (q && q.m.captured && V[q.m.captured] >= 3 && q.m.san !== m.san) {
+      const back = q.c.moves({ verbose: true }).some(x => x.to === q.m.to && x.captured);
+      if (!back || V[q.m.captured] - V[q.m.piece] >= 2) t.push(['missCap', { piece: N[q.m.captured], sq: q.m.to, taker: N[q.m.piece], w: back ? V[q.m.captured] - V[q.m.piece] : V[q.m.captured] }]);
+    }
     if (wb >= 70 && wa <= 55) t.push(['thrown', {}]);
     else if (wb > 40 && wa <= 25) t.push(['swing', {}]);
   }
@@ -75,6 +94,8 @@ export function tags({ m, b, a, drop, wb, wa, cls }) {
 const P = {
   brilliant: ['{san} is brilliant! A real sacrifice that the engine backs up.', '{san}!! Bold, and it actually works.', 'What a find: {san}.'],
   great: ['{san} is a great move.', '{san} is the key move in this position.', 'Well spotted: {san}.'],
+  book: ['{san} is a book move.', '{san} is opening theory.', '{san} follows known opening theory.'],
+  forced: ['{san} is forced.', '{san} is the only legal move.'],
   best: ['{san} is the best move.', '{san} is exactly what the engine wanted.', 'Top choice: {san}.', '{san} is spot on.'],
   excellent: ['{san} is excellent.', '{san} is almost as good as the best move.', 'Very solid: {san}.'],
   good: ['{san} is a good move.', '{san} is fine.', '{san} does the job.'],

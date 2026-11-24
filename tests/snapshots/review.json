@@ -1,17 +1,19 @@
 {
  "scholar / steady engine": {
   "acc": [
-   58.54,
-   22.32
+   69.65,
+   33.99
   ],
   "cnt": {
    "w": {
-    "blunder": 2,
-    "miss": 1,
+    "book": 1,
+    "inaccuracy": 1,
+    "blunder": 1,
     "best": 1
    },
    "b": {
-    "blunder": 3
+    "book": 1,
+    "blunder": 2
    }
   },
   "win": [
@@ -27,30 +29,30 @@
   "moves": [
    [
     "e4",
-    "blunder",
+    "book",
     "swing",
     "g1f3",
     "+0.5 > -3.5",
     "Stockfish’s line after e4: 1.e4 d6 2.Nf3 Nf6 (-3.5) / Better line: 1.Nf3 a5 (+0.5)",
-    "e4 is a blunder. The game swings and White is now clearly worse. Nf3 was the move. It develops the knight. White is now clearly worse."
+    "e4 is a book move. The game swings and White is now clearly worse. e4 fights for the centre."
    ],
    [
     "e5",
-    "blunder",
+    "book",
     "thrown",
     "d7d6",
     "-3.5 > +0.6",
     "Stockfish’s line after e5: 1…e5 2.g3 h6 3.Ba6 Nxa6 4.d3 (+0.6) / Better line: 1…d6 2.Nf3 Nf6 (-3.5)",
-    "e5 is a blunder. This gives back a big advantage. d6 was the better try. Black is now slightly worse."
+    "e5 is a book move. This gives back a big advantage. e5 fights for the centre."
    ],
    [
     "Qh5",
-    "miss",
+    "inaccuracy",
     "",
     "g2g3",
     "+0.6 > -0.1",
     "Stockfish’s line after Qh5: 2.Qh5 h6 3.d3 Qf6 4.Qf5 Qxf5 (-0.1) / Better line: 2.g3 h6 3.Ba6 Nxa6 4.d3 (+0.6)",
-    "White missed a chance with Qh5. Best was g3. The position is now roughly equal."
+    "Qh5 is slightly imprecise. Best was g3."
    ],
    [
     "Nc6",
@@ -92,16 +94,18 @@
  },
  "scholar / wild engine": {
   "acc": [
-   32.28,
-   8.66
+   21.09,
+   22.03
   ],
   "cnt": {
    "w": {
-    "blunder": 3,
+    "book": 1,
+    "blunder": 2,
     "best": 1
    },
    "b": {
-    "blunder": 3
+    "book": 1,
+    "blunder": 2
    }
   },
   "win": [
@@ -117,21 +121,21 @@
   "moves": [
    [
     "e4",
-    "blunder",
+    "book",
     "",
     "g1f3",
     "+1.5 > -2.1",
     "Stockfish’s line after e4: 1.e4 g6 2.d3 e5 3.Qe2 Qh4 4.b3 (-2.1) / Better line: 1.Nf3 a5 (+1.5)",
-    "e4 is a blunder. The engine preferred Nf3. It develops the knight. White is now clearly worse."
+    "e4 is a book move. e4 fights for the centre."
    ],
    [
     "e5",
-    "blunder",
+    "book",
     "swing",
     "g7g6",
     "-2.1 > +11.9",
     "Stockfish’s line after e5: 1…e5 2.g3 b5 3.Bxb5 Be7 4.Bxd7+ (+11.9) / Better line: 1…g6 2.d3 e5 3.Qe2 Qh4 4.b3 (-2.1)",
-    "e5 is a blunder. This turns the position in White’s favour. Stockfish’s line ends with White a pawn up. g6 was the better try. Black is now completely lost."
+    "e5 is a book move. This turns the position in White’s favour. e5 fights for the centre."
    ],
    [
     "Qh5",
@@ -182,20 +186,15 @@
  },
  "ruy / steady engine": {
   "acc": [
-   42.46,
-   48.03
+   100,
+   100
   ],
   "cnt": {
    "w": {
-    "blunder": 6,
-    "miss": 3,
-    "good": 1
+    "book": 10
    },
    "b": {
-    "blunder": 4,
-    "miss": 4,
-    "good": 1,
-    "best": 1
+    "book": 10
    }
   },
   "win": [
@@ -224,199 +223,197 @@
   "moves": [
    [
     "e4",
-    "blunder",
+    "book",
     "swing",
     "g1f3",
     "+0.5 > -3.5",
     "Stockfish’s line after e4: 1.e4 d6 2.Nf3 Nf6 (-3.5) / Better line: 1.Nf3 a5 (+0.5)",
-    "e4 is a blunder. The game swings and White is now clearly worse. Nf3 was the move. It develops the knight. White is now clearly worse."
+    "e4 is a book move. The game swings and White is now clearly worse. e4 fights for the centre."
    ],
    [
     "e5",
-    "blunder",
+    "book",
     "thrown",
     "d7d6",
     "-3.5 > +0.6",
     "Stockfish’s line after e5: 1…e5 2.g3 h6 3.Ba6 Nxa6 4.d3 (+0.6) / Better line: 1…d6 2.Nf3 Nf6 (-3.5)",
-    "e5 is a blunder. This gives back a big advantage. d6 was the better try. Black is now slightly worse."
+    "e5 is a book move. This gives back a big advantage. e5 fights for the centre."
    ],
    [
     "Nf3",
-    "miss",
+    "book",
     "",
     "g2g3",
     "+0.6 > -1.5",
     "Stockfish’s line after Nf3: 2.Nf3 Bc5 3.g4 Bxf2+ 4.Kxf2 (-1.5) / Better line: 2.g3 h6 3.Ba6 Nxa6 4.d3 (+0.6)",
-    "White missed a chance with Nf3. Best was g3. White is now slightly worse."
+    "Nf3 is opening theory. Nf3 develops the knight."
    ],
    [
     "Nc6",
-    "blunder",
+    "book",
     "",
     "f8c5",
     "-1.5 > +2.5",
     "Stockfish’s line after Nc6: 2…Nc6 3.Ke2 b6 4.a4 b5 (+2.5) / Better line: 2…Bc5 3.g4 Bxf2+ 4.Kxf2 (-1.5)",
-    "Nc6 is a serious blunder. The engine preferred Bc5. It develops the bishop. Black is now clearly worse."
+    "Nc6 is opening theory. Nc6 develops the knight."
    ],
    [
     "Bb5",
-    "blunder",
+    "book",
     "thrown",
     "e1e2",
     "+2.5 > +0.1",
     "Stockfish’s line after Bb5: 3.Bb5 Nb4 4.O-O Nh6 (+0.1) / Better line: 3.Ke2 b6 4.a4 b5 (+2.5)",
-    "Bb5 is a serious blunder. This gives back a big advantage. Ke2 was the move. The position is now roughly equal."
+    "Bb5 is opening theory. This gives back a big advantage. Bb5 develops the bishop."
    ],
    [
     "a6",
-    "miss",
+    "book",
     "",
     "c6b4",
     "+0.1 > +2.1",
     "Stockfish’s line after a6: 3…a6 4.Bxc6 bxc6 5.Nxe5 (+2.1) / Better line: 3…Nb4 4.O-O Nh6 (+0.1)",
-    "Black missed a chance with a6. White answers Bxc6, which trades the bishop for the knight. Nb4 was the better try. Black is now clearly worse."
+    "a6 is opening theory. a6 threatens the bishop on b5."
    ],
    [
     "Ba4",
-    "blunder",
+    "book",
     "",
     "b5c6",
     "+2.1 > -0.2",
     "Stockfish’s line after Ba4: 4.Ba4 Nb8 5.Bxd7+ Qxd7 6.b4 (-0.2) / Better line: 4.Bxc6 bxc6 5.Nxe5 (+2.1)",
-    "Ba4 is a serious blunder. Stockfish’s line ends with Black about 2 points of material up. Best was Bxc6. It trades the bishop for the knight. The position is now roughly equal."
+    "Ba4 is opening theory. Ba4 saves the bishop from being captured."
    ],
    [
     "Nf6",
-    "miss",
+    "book",
     "",
     "c6b8",
     "-0.2 > +1.4",
     "Stockfish’s line after Nf6: 4…Nf6 5.Bxc6 dxc6 6.Nxe5 Nd7 7.Nxd7 Qxd7 (+1.4) / Better line: 4…Nb8 5.Bxd7+ Qxd7 6.b4 (-0.2)",
-    "Nf6 lets White off the hook. White answers Bxc6, which trades the bishop for the knight, and wins about 2 points of material. The engine preferred Nb8. That line wins about 2 points of material. Black is now slightly worse."
+    "Nf6 follows known opening theory. Nf6 develops the knight."
    ],
    [
     "O-O",
-    "blunder",
+    "book",
     "",
     "a4c6",
     "+1.4 > -1.5",
     "Stockfish’s line after O-O: 5.O-O Ne7 6.Bxd7+ (-1.5) / Better line: 5.Bxc6 dxc6 6.Nxe5 Nd7 7.Nxd7 Qxd7 (+1.4)",
-    "Ouch, O-O is a big blunder. Black answers Ne7 and wins a pawn. Bxc6 was the move. It trades the bishop for the knight. White is now slightly worse."
+    "O-O follows known opening theory. O-O castles to safety."
    ],
    [
     "Be7",
-    "blunder",
+    "book",
     "swing",
     "c6e7",
     "-1.5 > +3.1",
     "Stockfish’s line after Be7: 5…Be7 6.Qe2 Nxe4 7.Bxc6 (+3.1) / Better line: 5…Ne7 6.Bxd7+ (-1.5)",
-    "Ouch, Be7 is a big blunder. The game swings and Black is now clearly worse. Ne7 was the move. Black is now clearly worse."
+    "Be7 follows known opening theory. The game swings and Black is now clearly worse. Be7 develops the bishop."
    ],
    [
     "Re1",
-    "blunder",
+    "book",
     "thrown",
     "d1e2",
     "+3.1 > +0.2",
     "Stockfish’s line after Re1: 6.Re1 Na7 7.g3 Bb4 8.Ng5 Nxe4 9.Rxe4 (+0.2) / Better line: 6.Qe2 Nxe4 7.Bxc6 (+3.1)",
-    "Ouch, Re1 is a big blunder. White was clearly winning and this throws most of it away. Qe2 was the better try. The position is now roughly equal."
+    "Re1 follows known opening theory. White was clearly winning and this throws most of it away."
    ],
    [
     "b5",
-    "miss",
+    "book",
     "",
     "c6a7",
     "+0.2 > +1.7",
     "Stockfish’s line after b5: 6…b5 7.d3 bxa4 (+1.7) / Better line: 6…Na7 7.g3 Bb4 8.Ng5 Nxe4 9.Rxe4 (+0.2)",
-    "b5 misses a chance. Na7 was the move. Black is now slightly worse."
+    "b5 is a book move. b5 threatens the bishop on a4."
    ],
    [
     "Bb3",
-    "miss",
+    "book",
     "",
     "d2d3",
     "+1.7 > -0.2",
     "Stockfish’s line after Bb3: 7.Bb3 Rf8 8.Nh4 Nb4 9.Qf3 Nxa2 (-0.2) / Better line: 7.d3 bxa4 (+1.7)",
-    "Bb3 misses a chance. d3 was the better try. The position is now roughly equal."
+    "Bb3 is a book move. Bb3 saves the bishop from being captured."
    ],
    [
     "d6",
-    "miss",
+    "book",
     "",
     "h8f8",
     "-0.2 > +1.5",
     "Stockfish’s line after d6: 7…d6 8.Nd4 exd4 9.Bxf7+ Kxf7 10.c3 Bg4 (+1.5) / Better line: 7…Rf8 8.Nh4 Nb4 9.Qf3 Nxa2 (-0.2)",
-    "d6 misses a chance. Best was Rf8. Black is now slightly worse."
+    "d6 is a book move."
    ],
    [
     "c3",
-    "miss",
+    "book",
     "",
     "f3d4",
     "+1.5 > -0.2",
     "Stockfish’s line after c3: 8.c3 Bd7 9.Kh1 Bg4 (-0.2) / Better line: 8.Nd4 exd4 9.Bxf7+ Kxf7 10.c3 Bg4 (+1.5)",
-    "c3 misses a chance. The engine preferred Nd4. It threatens the knight on c6. The position is now roughly equal."
+    "c3 is a book move."
    ],
    [
     "O-O",
-    "blunder",
+    "book",
     "",
     "c8d7",
     "-0.2 > +2.8",
     "Stockfish’s line after O-O: 8…O-O 9.Rf1 Ne8 10.a4 Nd4 (+2.8) / Better line: 8…Bd7 9.Kh1 Bg4 (-0.2)",
-    "O-O is a blunder. Bd7 was the move. It develops the bishop. Black is now clearly worse."
+    "O-O is a book move. O-O castles to safety."
    ],
    [
     "h3",
-    "blunder",
+    "book",
     "thrown",
     "e1f1",
     "+2.8 > 0.0",
     "Stockfish’s line after h3: 9.h3 g5 10.d3 (0.0) / Better line: 9.Rf1 Ne8 10.a4 Nd4 (+2.8)",
-    "h3 is a serious blunder. This gives back a big advantage. Rf1 was the better try. The position is now roughly equal."
+    "h3 is opening theory. This gives back a big advantage."
    ],
    [
     "Nb8",
-    "good",
+    "book",
     "",
     "g7g5",
     "0.0 > +0.2",
     "Stockfish’s line after Nb8: 9…Nb8 10.Kh2 Nxe4 11.Rxe4 Bxh3 (+0.2) / Better line: 9…g5 10.d3 (0.0)",
-    "Nb8 is fine. Stockfish slightly preferred g5 (0.0)."
+    "Nb8 is opening theory."
    ],
    [
     "d4",
-    "good",
+    "book",
     "",
     "g1h2",
     "+0.2 > -0.1",
     "Stockfish’s line after d4: 10.d4 exd4 11.Nfd2 Bxh3 12.gxh3 Nxe4 13.Nxe4 (-0.1) / Better line: 10.Kh2 Nxe4 11.Rxe4 Bxh3 (+0.2)",
-    "d4 is fine. d4 fights for the centre. Stockfish slightly preferred Kh2 (+0.2)."
+    "d4 is opening theory. d4 fights for the centre."
    ],
    [
     "Nbd7",
-    "best",
+    "book",
     "",
     "e5d4",
     "-0.1 > -0.1",
     "Stockfish’s line after Nbd7: 10…Nbd7 11.Nxe5 Nxe5 12.dxe5 Nxe4 13.Rxe4 (-0.1) / Better line: 10…exd4 11.Nfd2 Bxh3 12.gxh3 Nxe4 13.Nxe4 (-0.1)",
-    "Top choice: Nbd7. Nbd7 develops the knight."
+    "Nbd7 is opening theory. Nbd7 develops the knight."
    ]
   ]
  },
  "ruy / wild engine": {
   "acc": [
-   15.68,
-   21.38
+   100,
+   100
   ],
   "cnt": {
    "w": {
-    "blunder": 10
+    "book": 10
    },
    "b": {
-    "blunder": 8,
-    "miss": 1,
-    "best": 1
+    "book": 10
    }
   },
   "win": [
@@ -445,194 +442,195 @@
   "moves": [
    [
     "e4",
-    "blunder",
+    "book",
     "",
     "g1f3",
     "+1.5 > -2.1",
     "Stockfish’s line after e4: 1.e4 g6 2.d3 e5 3.Qe2 Qh4 4.b3 (-2.1) / Better line: 1.Nf3 a5 (+1.5)",
-    "e4 is a blunder. The engine preferred Nf3. It develops the knight. White is now clearly worse."
+    "e4 is a book move. e4 fights for the centre."
    ],
    [
     "e5",
-    "blunder",
+    "book",
     "swing",
     "g7g6",
     "-2.1 > +11.9",
     "Stockfish’s line after e5: 1…e5 2.g3 b5 3.Bxb5 Be7 4.Bxd7+ (+11.9) / Better line: 1…g6 2.d3 e5 3.Qe2 Qh4 4.b3 (-2.1)",
-    "e5 is a blunder. This turns the position in White’s favour. Stockfish’s line ends with White a pawn up. g6 was the better try. Black is now completely lost."
+    "e5 is a book move. This turns the position in White’s favour. e5 fights for the centre."
    ],
    [
     "Nf3",
-    "blunder",
+    "book",
     "thrown",
     "g2g3",
     "+11.9 > -8.1",
     "Stockfish’s line after Nf3: 2.Nf3 Nh6 (-8.1) / Better line: 2.g3 b5 3.Bxb5 Be7 4.Bxd7+ (+11.9)",
-    "Nf3 is a serious blunder. White was clearly winning and this throws most of it away. Black answers Nh6 and wins a pawn. Best was g3. That line wins a pawn. White is now completely lost."
+    "Nf3 is opening theory. White was clearly winning and this throws most of it away. Nf3 develops the knight."
    ],
    [
     "Nc6",
-    "blunder",
+    "book",
     "thrown",
     "g8h6",
     "-8.1 > +2.2",
     "Stockfish’s line after Nc6: 2…Nc6 3.a4 Bb4 4.Nxe5 Nxe5 (+2.2) / Better line: 2…Nh6 (-8.1)",
-    "Nc6 is a serious blunder. Black was clearly winning and this throws most of it away. The engine preferred Nh6. It develops the knight. Black is now clearly worse."
+    "Nc6 is opening theory. Black was clearly winning and this throws most of it away. Nc6 develops the knight."
    ],
    [
     "Bb5",
-    "blunder",
+    "book",
     "",
     "a2a4",
     "+2.2 > -1.0",
     "Stockfish’s line after Bb5: 3.Bb5 Nb4 (-1.0) / Better line: 3.a4 Bb4 4.Nxe5 Nxe5 (+2.2)",
-    "Bb5 is a serious blunder. a4 was the move. White is now slightly worse."
+    "Bb5 is opening theory. Bb5 develops the bishop."
    ],
    [
     "a6",
-    "blunder",
+    "book",
     "swing",
     "c6b4",
     "-1.0 > +11.6",
     "Stockfish’s line after a6: 3…a6 4.Bxc6 bxc6 5.a3 (+11.6) / Better line: 3…Nb4 (-1.0)",
-    "a6 is a serious blunder. This turns the position in White’s favour. White answers Bxc6, which trades the bishop for the knight. Nb4 was the move. Black is now completely lost."
+    "a6 is opening theory. This turns the position in White’s favour. a6 threatens the bishop on b5."
    ],
    [
     "Ba4",
-    "blunder",
+    "book",
     "",
     "b5c6",
     "+11.6 > +1.2",
     "Stockfish’s line after Ba4: 4.Ba4 Bd6 5.Bxc6 (+1.2) / Better line: 4.Bxc6 bxc6 5.a3 (+11.6)",
-    "Ba4 is a serious blunder. Best was Bxc6. It trades the bishop for the knight. White is now slightly better."
+    "Ba4 is opening theory. Ba4 saves the bishop from being captured."
    ],
    [
     "Nf6",
-    "blunder",
+    "book",
     "thrown",
     "b7b6",
     "-6.6 > +10.7",
     "Stockfish’s line after Nf6: 4…Nf6 5.g3 Nxe4 6.Bxc6 dxc6 7.Nh4 Qxh4 (+10.7) / Better line: 4…b6 5.Bxc6 dxc6 (-6.6)",
-    "Ouch, Nf6 is a big blunder. Black was clearly winning and this throws most of it away. Best was b6. Black is now completely lost."
+    "Nf6 follows known opening theory. Black was clearly winning and this throws most of it away. Nf6 develops the knight."
    ],
    [
     "O-O",
-    "blunder",
+    "book",
     "thrown",
     "g2g3",
     "+10.7 > -6.7",
     "Stockfish’s line after O-O: 5.O-O Ng8 6.Bxc6 bxc6 (-6.7) / Better line: 5.g3 Nxe4 6.Bxc6 dxc6 7.Nh4 Qxh4 (+10.7)",
-    "Ouch, O-O is a big blunder. This gives back a big advantage. The engine preferred g3. White is now completely lost."
+    "O-O follows known opening theory. This gives back a big advantage. O-O castles to safety."
    ],
    [
     "Be7",
-    "blunder",
+    "book",
     "thrown",
     "f6g8",
     "-6.7 > +4.1",
     "Stockfish’s line after Be7: 5…Be7 6.Nxe5 Nxe5 7.Bxd7+ Nexd7 8.h4 Rb8 (+4.1) / Better line: 5…Ng8 6.Bxc6 bxc6 (-6.7)",
-    "Ouch, Be7 is a big blunder. Black was clearly winning and this throws most of it away. Ng8 was the move. Black is now clearly worse."
+    "Be7 follows known opening theory. Black was clearly winning and this throws most of it away. Be7 develops the bishop."
    ],
    [
     "Re1",
-    "blunder",
+    "book",
     "thrown",
     "f3e5",
     "+4.1 > -0.6",
     "Stockfish’s line after Re1: 6.Re1 h5 7.Bxc6 bxc6 (-0.6) / Better line: 6.Nxe5 Nxe5 7.Bxd7+ Nexd7 8.h4 Rb8 (+4.1)",
-    "Ouch, Re1 is a big blunder. White was clearly winning and this throws most of it away. Nxe5 was the better try. White is now slightly worse."
+    "Re1 follows known opening theory. White was clearly winning and this throws most of it away."
    ],
    [
     "b5",
-    "miss",
+    "book",
     "",
     "h7h5",
     "-0.6 > +1.4",
     "Stockfish’s line after b5: 6…b5 7.Bxb5 Bb4 8.Bxc6 dxc6 (+1.4) / Better line: 6…h5 7.Bxc6 bxc6 (-0.6)",
-    "b5 misses a chance. White answers Bxb5 and wins a pawn. h5 was the move. Black is now slightly worse."
+    "b5 is a book move. b5 threatens the bishop on a4."
    ],
    [
     "Bb3",
-    "blunder",
+    "book",
     "",
     "a4b5",
     "+1.4 > -1.6",
     "Stockfish’s line after Bb3: 7.Bb3 Bf8 8.Qe2 Ng4 (-1.6) / Better line: 7.Bxb5 Bb4 8.Bxc6 dxc6 (+1.4)",
-    "Bb3 is a blunder. Black answers Bf8 and wins a pawn. Bxb5 was the better try. That line wins a pawn. White is now slightly worse."
+    "Bb3 is a book move. Bb3 saves the bishop from being captured."
    ],
    [
     "d6",
-    "blunder",
+    "book",
     "",
     "e7f8",
     "-1.6 > +1.6",
     "Stockfish’s line after d6: 7…d6 8.h4 Rg8 9.Bxf7+ (+1.6) / Better line: 7…Bf8 8.Qe2 Ng4 (-1.6)",
-    "d6 is a blunder. Best was Bf8. Black is now slightly worse."
+    "d6 is a book move."
    ],
    [
     "c3",
-    "blunder",
+    "book",
     "swing",
     "h2h4",
     "+1.6 > -6.1",
     "Stockfish’s line after c3: 8.c3 O-O 9.Bxf7+ Rxf7 10.Nxe5 (-6.1) / Better line: 8.h4 Rg8 9.Bxf7+ (+1.6)",
-    "c3 is a blunder. The game swings and White is now clearly worse. h4 was the move. White is now completely lost."
+    "c3 is a book move. The game swings and White is now clearly worse."
    ],
    [
     "O-O",
-    "best",
+    "book",
     "",
     "",
     "-6.1 > -6.1",
     "Stockfish’s line: 8…O-O 9.Bxf7+ Rxf7 10.Nxe5 (-6.1)",
-    "O-O is exactly what the engine wanted. O-O castles to safety."
+    "O-O is a book move. O-O castles to safety."
    ],
    [
     "h3",
-    "blunder",
+    "book",
     "",
     "b3c2",
     "+1.6 > -1.1",
     "Stockfish’s line after h3: 9.h3 g5 10.Qe2 (-1.1) / Better line: 9.Bc2 h5 10.Rf1 Kh7 11.Nxe5 (+1.6)",
-    "h3 is a serious blunder. Bc2 was the better try. White is now slightly worse."
+    "h3 is opening theory."
    ],
    [
     "Nb8",
-    "blunder",
+    "book",
     "swing",
     "g7g5",
     "-1.1 > +7.1",
     "Stockfish’s line after Nb8: 9…Nb8 10.Ba4 bxa4 11.Qe2 (+7.1) / Better line: 9…g5 10.Qe2 (-1.1)",
-    "Nb8 is a serious blunder. The game swings and Black is now clearly worse. Best was g5. Black is now completely lost."
+    "Nb8 is opening theory. The game swings and Black is now clearly worse."
    ],
    [
     "d4",
-    "blunder",
+    "book",
     "thrown",
     "b3a4",
     "+7.1 > -1.7",
     "Stockfish’s line after d4: 10.d4 Bb7 11.Rf1 exd4 12.Bxf7+ (-1.7) / Better line: 10.Ba4 bxa4 11.Qe2 (+7.1)",
-    "d4 is a serious blunder. This gives back a big advantage. The engine preferred Ba4. White is now slightly worse."
+    "d4 is opening theory. This gives back a big advantage. d4 fights for the centre."
    ],
    [
     "Nbd7",
-    "blunder",
+    "book",
     "",
     "c8b7",
     "-1.7 > +1.7",
     "Stockfish’s line after Nbd7: 10…Nbd7 11.Bd2 Nxe4 12.Rxe4 (+1.7) / Better line: 10…Bb7 11.Rf1 exd4 12.Bxf7+ (-1.7)",
-    "Nbd7 is a serious blunder. Bb7 was the better try. It develops the bishop. Black is now slightly worse."
+    "Nbd7 is opening theory. Nbd7 develops the knight."
    ]
   ]
  },
  "immortal / steady engine": {
   "acc": [
-   66.1,
-   79.01
+   61.49,
+   76.31
   ],
   "cnt": {
    "w": {
-    "blunder": 8,
+    "book": 2,
+    "blunder": 6,
     "best": 7,
     "good": 1,
     "mistake": 2,
@@ -642,12 +640,14 @@
     "brilliant": 1
    },
    "b": {
-    "blunder": 3,
-    "miss": 5,
-    "best": 9,
+    "book": 2,
+    "best": 8,
     "good": 3,
     "inaccuracy": 1,
-    "great": 1
+    "miss": 4,
+    "blunder": 2,
+    "great": 1,
+    "forced": 1
    }
   },
   "win": [
@@ -701,39 +701,39 @@
   "moves": [
    [
     "e4",
-    "blunder",
+    "book",
     "swing",
     "g1f3",
     "+0.5 > -3.5",
     "Stockfish’s line after e4: 1.e4 d6 2.Nf3 Nf6 (-3.5) / Better line: 1.Nf3 a5 (+0.5)",
-    "e4 is a blunder. The game swings and White is now clearly worse. Nf3 was the move. It develops the knight. White is now clearly worse."
+    "e4 is a book move. The game swings and White is now clearly worse. e4 fights for the centre."
    ],
    [
     "e5",
-    "blunder",
+    "book",
     "thrown",
     "d7d6",
     "-3.5 > +0.6",
     "Stockfish’s line after e5: 1…e5 2.g3 h6 3.Ba6 Nxa6 4.d3 (+0.6) / Better line: 1…d6 2.Nf3 Nf6 (-3.5)",
-    "e5 is a blunder. This gives back a big advantage. d6 was the better try. Black is now slightly worse."
+    "e5 is a book move. This gives back a big advantage. e5 fights for the centre."
    ],
    [
     "f4",
-    "blunder",
+    "book",
     "",
     "g2g3",
     "+0.6 > -1.6",
     "Stockfish’s line after f4: 2.f4 Bc5 3.fxe5 Bxg1 4.Rxg1 (-1.6) / Better line: 2.g3 h6 3.Ba6 Nxa6 4.d3 (+0.6)",
-    "f4 is a serious blunder. Best was g3. White is now slightly worse."
+    "f4 is opening theory."
    ],
    [
     "exf4",
-    "miss",
+    "book",
     "",
     "f8c5",
     "-1.6 > -0.6",
     "Stockfish’s line after exf4: 2…exf4 3.Be2 Bb4 4.g4 Bxd2+ 5.Kxd2 (-0.6) / Better line: 2…Bc5 3.fxe5 Bxg1 4.Rxg1 (-1.6)",
-    "Black missed a chance with exf4. The engine preferred Bc5. It develops the bishop. Black is now slightly better."
+    "exf4 is opening theory. exf4 wins the pawn on f4 for free."
    ],
    [
     "Bc4",
@@ -999,11 +999,11 @@
    [
     "Qxb2",
     "miss",
-    "",
+    "missCap",
     "c5g1",
     "-3.3 > -2.5",
     "Stockfish’s line after Qxb2: 17…Qxb2 18.Bxb8 Bxg1 19.Kxg1 Qxa1+ 20.Kh2 Rxb8 (-2.5) / Better line: 17…Bxg1 18.Nxf6+ (-3.3)",
-    "Black missed a chance with Qxb2. White answers Bxb8, which trades the bishop for the knight. Bxg1 was the better try. It wins a rook for a bishop. Black is now clearly better."
+    "Black missed a chance with Qxb2. A free rook on g1 was there for the bishop to take. White answers Bxb8, which trades the bishop for the knight. The engine preferred Bxg1. It wins a rook for a bishop. Black is now clearly better."
    ],
    [
     "Bd6",
@@ -1070,12 +1070,12 @@
    ],
    [
     "Kd8",
-    "best",
+    "forced",
     "",
     "",
     "-12.0 > -12.0",
     "Stockfish’s line: 21…Kd8 22.Qf6+ Nxf6 23.Ne3 Bxe3 24.a4 (-12.0)",
-    "Kd8 is the best move."
+    "Kd8 is forced."
    ],
    [
     "Qf6+",
@@ -1108,12 +1108,13 @@
  },
  "immortal / wild engine": {
   "acc": [
-   41.21,
-   40.89
+   24.63,
+   26.12
   ],
   "cnt": {
    "w": {
-    "blunder": 14,
+    "book": 2,
+    "blunder": 12,
     "great": 1,
     "miss": 1,
     "best": 4,
@@ -1122,12 +1123,14 @@
     "brilliant": 1
    },
    "b": {
-    "blunder": 13,
+    "book": 2,
+    "blunder": 11,
     "great": 1,
-    "best": 3,
+    "best": 2,
     "miss": 3,
     "excellent": 1,
-    "good": 1
+    "good": 1,
+    "forced": 1
    }
   },
   "win": [
@@ -1181,39 +1184,39 @@
   "moves": [
    [
     "e4",
-    "blunder",
+    "book",
     "",
     "g1f3",
     "+1.5 > -2.1",
     "Stockfish’s line after e4: 1.e4 g6 2.d3 e5 3.Qe2 Qh4 4.b3 (-2.1) / Better line: 1.Nf3 a5 (+1.5)",
-    "e4 is a blunder. The engine preferred Nf3. It develops the knight. White is now clearly worse."
+    "e4 is a book move. e4 fights for the centre."
    ],
    [
     "e5",
-    "blunder",
+    "book",
     "swing",
     "g7g6",
     "-2.1 > +11.9",
     "Stockfish’s line after e5: 1…e5 2.g3 b5 3.Bxb5 Be7 4.Bxd7+ (+11.9) / Better line: 1…g6 2.d3 e5 3.Qe2 Qh4 4.b3 (-2.1)",
-    "e5 is a blunder. This turns the position in White’s favour. Stockfish’s line ends with White a pawn up. g6 was the better try. Black is now completely lost."
+    "e5 is a book move. This turns the position in White’s favour. e5 fights for the centre."
    ],
    [
     "f4",
-    "blunder",
+    "book",
     "thrown",
     "g2g3",
     "+11.9 > -4.7",
     "Stockfish’s line after f4: 2.f4 Qh4+ 3.g3 (-4.7) / Better line: 2.g3 b5 3.Bxb5 Be7 4.Bxd7+ (+11.9)",
-    "f4 is a serious blunder. White was clearly winning and this throws most of it away. Black answers Qh4+, which gives check, and wins a pawn. Best was g3. That line wins a pawn. White is now clearly worse."
+    "f4 is opening theory. White was clearly winning and this throws most of it away."
    ],
    [
     "exf4",
-    "blunder",
+    "book",
     "thrown",
     "d8h4",
     "-4.7 > +4.6",
     "Stockfish’s line after exf4: 2…exf4 3.a4 f6 4.Na3 Bxa3 5.Rxa3 (+4.6) / Better line: 2…Qh4+ 3.g3 (-4.7)",
-    "exf4 is a serious blunder. Black was clearly winning and this throws most of it away. The engine preferred Qh4+. It gives check. Black is now clearly worse."
+    "exf4 is opening theory. Black was clearly winning and this throws most of it away. exf4 wins the pawn on f4 for free."
    ],
    [
     "Bc4",
@@ -1479,11 +1482,11 @@
    [
     "Qxb2",
     "miss",
-    "",
+    "missCap",
     "c5g1",
     "-4.6 > -2.4",
     "Stockfish’s line after Qxb2: 17…Qxb2 18.Bxb8 Bxg1 19.Kxg1 Qxa1+ 20.Kh2 Rxb8 (-2.4) / Better line: 17…Bxg1 18.Nxf6+ (-4.6)",
-    "Black missed a chance with Qxb2. White answers Bxb8, which trades the bishop for the knight. Bxg1 was the better try. It wins a rook for a bishop. Black is now clearly better."
+    "Black missed a chance with Qxb2. A free rook on g1 was there for the bishop to take. White answers Bxb8, which trades the bishop for the knight. The engine preferred Bxg1. It wins a rook for a bishop. Black is now clearly better."
    ],
    [
     "Bd6",
@@ -1550,12 +1553,12 @@
    ],
    [
     "Kd8",
-    "best",
+    "forced",
     "",
     "",
     "-12.4 > -12.4",
     "Stockfish’s line: 21…Kd8 22.Qxf7 Qxa2 23.Qxg8+ Rxg8 24.d4 (-12.4)",
-    "Kd8 is the best move."
+    "Kd8 is forced."
    ],
    [
     "Qf6+",
@@ -1588,8 +1591,8 @@
  },
  "stalemate / steady engine": {
   "acc": [
-   37.16,
-   32.96
+   6.88,
+   8.19
   ],
   "cnt": {
    "w": {
@@ -1803,8 +1806,8 @@
  },
  "stalemate / wild engine": {
   "acc": [
-   20.74,
-   20.1
+   5.31,
+   4.6
   ],
   "cnt": {
    "w": {
@@ -2016,12 +2019,13 @@
  },
  "enpassant / steady engine": {
   "acc": [
-   57.13,
-   38.85
+   37.51,
+   15.87
   ],
   "cnt": {
    "w": {
-    "blunder": 3,
+    "book": 1,
+    "blunder": 2,
     "best": 3
    },
    "b": {
@@ -2048,12 +2052,12 @@
   "moves": [
    [
     "e4",
-    "blunder",
+    "book",
     "swing",
     "g1f3",
     "+0.5 > -3.5",
     "Stockfish’s line after e4: 1.e4 d6 2.Nf3 Nf6 (-3.5) / Better line: 1.Nf3 a5 (+0.5)",
-    "e4 is a blunder. The game swings and White is now clearly worse. Nf3 was the move. It develops the knight. White is now clearly worse."
+    "e4 is a book move. The game swings and White is now clearly worse. e4 fights for the centre."
    ],
    [
     "a6",
@@ -2158,12 +2162,13 @@
  },
  "enpassant / wild engine": {
   "acc": [
-   74.5,
-   38.88
+   73.92,
+   14.18
   ],
   "cnt": {
    "w": {
-    "blunder": 2,
+    "book": 1,
+    "blunder": 1,
     "best": 4
    },
    "b": {
@@ -2190,12 +2195,12 @@
   "moves": [
    [
     "e4",
-    "blunder",
+    "book",
     "",
     "g1f3",
     "+1.5 > -2.1",
     "Stockfish’s line after e4: 1.e4 g6 2.d3 e5 3.Qe2 Qh4 4.b3 (-2.1) / Better line: 1.Nf3 a5 (+1.5)",
-    "e4 is a blunder. The engine preferred Nf3. It develops the knight. White is now clearly worse."
+    "e4 is a book move. e4 fights for the centre."
    ],
    [
     "a6",
@@ -2300,7 +2305,7 @@
  },
  "promotion / steady engine": {
   "acc": [
-   77.56,
+   25.75,
    100
   ],
   "cnt": {
@@ -2390,7 +2395,7 @@
  },
  "promotion / wild engine": {
   "acc": [
-   77.18,
+   23.24,
    100
   ],
   "cnt": {
@@ -2480,17 +2485,20 @@
  },
  "chesscom / steady engine": {
   "acc": [
-   58.54,
-   22.32
+   74.96,
+   35.67
   ],
   "cnt": {
    "w": {
-    "blunder": 2,
+    "book": 1,
+    "inaccuracy": 1,
     "miss": 1,
     "best": 1
    },
    "b": {
-    "blunder": 3
+    "book": 1,
+    "mistake": 1,
+    "blunder": 1
    }
   },
   "win": [
@@ -2506,48 +2514,48 @@
   "moves": [
    [
     "e4",
-    "blunder",
-    "swing",
+    "book",
+    "",
     "g1f3",
     "+0.5 > -3.5",
     "Stockfish’s line after e4: 1.e4 d6 2.Nf3 Nf6 (-3.5) / Better line: 1.Nf3 a5 (+0.5)",
-    "e4 is a blunder. The game swings and White is now clearly worse. Nf3 was the move. It develops the knight. White is now clearly worse."
+    "e4 is a book move. e4 fights for the centre."
    ],
    [
     "e5",
-    "blunder",
+    "book",
     "thrown",
     "d7d6",
     "-3.5 > +0.6",
     "Stockfish’s line after e5: 1…e5 2.g3 h6 3.Ba6 Nxa6 4.d3 (+0.6) / Better line: 1…d6 2.Nf3 Nf6 (-3.5)",
-    "e5 is a blunder. This gives back a big advantage. d6 was the better try. Black is now slightly worse."
+    "e5 is a book move. This gives back a big advantage. e5 fights for the centre."
    ],
    [
     "Qh5",
-    "miss",
+    "inaccuracy",
     "",
     "g2g3",
     "+0.6 > -0.1",
     "Stockfish’s line after Qh5: 2.Qh5 h6 3.d3 Qf6 4.Qf5 Qxf5 (-0.1) / Better line: 2.g3 h6 3.Ba6 Nxa6 4.d3 (+0.6)",
-    "White missed a chance with Qh5. Best was g3. The position is now roughly equal."
+    "Qh5 is slightly imprecise. Best was g3."
    ],
    [
     "Nc6",
-    "blunder",
+    "mistake",
     "",
     "h7h6",
     "-0.1 > +2.3",
     "Stockfish’s line after Nc6: 2…Nc6 3.Ba6 bxa6 4.g3 Bb7 5.Qxf7+ (+2.3) / Better line: 2…h6 3.d3 Qf6 4.Qf5 Qxf5 (-0.1)",
-    "Nc6 is a serious blunder. The engine preferred h6. Black is now clearly worse."
+    "Nc6 is a real slip. The engine preferred h6. Black is now clearly worse."
    ],
    [
     "Bc4",
-    "blunder",
+    "miss",
     "",
     "f1a6",
     "+2.3 > -0.1",
     "Stockfish’s line after Bc4: 3.Bc4 d5 4.exd5 Be7 5.dxc6 (-0.1) / Better line: 3.Ba6 bxa6 4.g3 Bb7 5.Qxf7+ (+2.3)",
-    "Bc4 is a serious blunder. Ba6 was the move. It develops the bishop. The position is now roughly equal."
+    "White missed a chance with Bc4. Ba6 was the move. It develops the bishop. The position is now roughly equal."
    ],
    [
     "Nf6",
@@ -2571,16 +2579,18 @@
  },
  "chesscom / wild engine": {
   "acc": [
-   32.28,
-   8.66
+   26.96,
+   23.46
   ],
   "cnt": {
    "w": {
-    "blunder": 3,
+    "book": 1,
+    "blunder": 2,
     "best": 1
    },
    "b": {
-    "blunder": 3
+    "book": 1,
+    "blunder": 2
    }
   },
   "win": [
@@ -2596,21 +2606,21 @@
   "moves": [
    [
     "e4",
-    "blunder",
+    "book",
     "",
     "g1f3",
     "+1.5 > -2.1",
     "Stockfish’s line after e4: 1.e4 g6 2.d3 e5 3.Qe2 Qh4 4.b3 (-2.1) / Better line: 1.Nf3 a5 (+1.5)",
-    "e4 is a blunder. The engine preferred Nf3. It develops the knight. White is now clearly worse."
+    "e4 is a book move. e4 fights for the centre."
    ],
    [
     "e5",
-    "blunder",
+    "book",
     "swing",
     "g7g6",
     "-2.1 > +11.9",
     "Stockfish’s line after e5: 1…e5 2.g3 b5 3.Bxb5 Be7 4.Bxd7+ (+11.9) / Better line: 1…g6 2.d3 e5 3.Qe2 Qh4 4.b3 (-2.1)",
-    "e5 is a blunder. This turns the position in White’s favour. Stockfish’s line ends with White a pawn up. g6 was the better try. Black is now completely lost."
+    "e5 is a book move. This turns the position in White’s favour. e5 fights for the centre."
    ],
    [
     "Qh5",
@@ -2661,17 +2671,19 @@
  },
  "lichess / steady engine": {
   "acc": [
-   58.54,
-   22.32
+   69.65,
+   33.99
   ],
   "cnt": {
    "w": {
-    "blunder": 2,
-    "miss": 1,
+    "book": 1,
+    "inaccuracy": 1,
+    "blunder": 1,
     "best": 1
    },
    "b": {
-    "blunder": 3
+    "book": 1,
+    "blunder": 2
    }
   },
   "win": [
@@ -2687,30 +2699,30 @@
   "moves": [
    [
     "e4",
-    "blunder",
+    "book",
     "swing",
     "g1f3",
     "+0.5 > -3.5",
     "Stockfish’s line after e4: 1.e4 d6 2.Nf3 Nf6 (-3.5) / Better line: 1.Nf3 a5 (+0.5)",
-    "e4 is a blunder. The game swings and White is now clearly worse. Nf3 was the move. It develops the knight. White is now clearly worse."
+    "e4 is a book move. The game swings and White is now clearly worse. e4 fights for the centre."
    ],
    [
     "e5",
-    "blunder",
+    "book",
     "thrown",
     "d7d6",
     "-3.5 > +0.6",
     "Stockfish’s line after e5: 1…e5 2.g3 h6 3.Ba6 Nxa6 4.d3 (+0.6) / Better line: 1…d6 2.Nf3 Nf6 (-3.5)",
-    "e5 is a blunder. This gives back a big advantage. d6 was the better try. Black is now slightly worse."
+    "e5 is a book move. This gives back a big advantage. e5 fights for the centre."
    ],
    [
     "Qh5",
-    "miss",
+    "inaccuracy",
     "",
     "g2g3",
     "+0.6 > -0.1",
     "Stockfish’s line after Qh5: 2.Qh5 h6 3.d3 Qf6 4.Qf5 Qxf5 (-0.1) / Better line: 2.g3 h6 3.Ba6 Nxa6 4.d3 (+0.6)",
-    "White missed a chance with Qh5. Best was g3. The position is now roughly equal."
+    "Qh5 is slightly imprecise. Best was g3."
    ],
    [
     "Nc6",
@@ -2752,16 +2764,18 @@
  },
  "lichess / wild engine": {
   "acc": [
-   32.28,
-   8.66
+   21.09,
+   22.03
   ],
   "cnt": {
    "w": {
-    "blunder": 3,
+    "book": 1,
+    "blunder": 2,
     "best": 1
    },
    "b": {
-    "blunder": 3
+    "book": 1,
+    "blunder": 2
    }
   },
   "win": [
@@ -2777,21 +2791,21 @@
   "moves": [
    [
     "e4",
-    "blunder",
+    "book",
     "",
     "g1f3",
     "+1.5 > -2.1",
     "Stockfish’s line after e4: 1.e4 g6 2.d3 e5 3.Qe2 Qh4 4.b3 (-2.1) / Better line: 1.Nf3 a5 (+1.5)",
-    "e4 is a blunder. The engine preferred Nf3. It develops the knight. White is now clearly worse."
+    "e4 is a book move. e4 fights for the centre."
    ],
    [
     "e5",
-    "blunder",
+    "book",
     "swing",
     "g7g6",
     "-2.1 > +11.9",
     "Stockfish’s line after e5: 1…e5 2.g3 b5 3.Bxb5 Be7 4.Bxd7+ (+11.9) / Better line: 1…g6 2.d3 e5 3.Qe2 Qh4 4.b3 (-2.1)",
-    "e5 is a blunder. This turns the position in White’s favour. Stockfish’s line ends with White a pawn up. g6 was the better try. Black is now completely lost."
+    "e5 is a book move. This turns the position in White’s favour. e5 fights for the centre."
    ],
    [
     "Qh5",
@@ -2842,8 +2856,8 @@
  },
  "random game 1 (62 plies) / steady engine": {
   "acc": [
-   58.55,
-   56.85
+   31.52,
+   29.3
   ],
   "cnt": {
    "w": {
@@ -2851,8 +2865,8 @@
     "miss": 3,
     "best": 5,
     "blunder": 12,
+    "brilliant": 1,
     "inaccuracy": 3,
-    "great": 1,
     "excellent": 4,
     "good": 2
    },
@@ -3007,12 +3021,12 @@
    ],
    [
     "Bxb8",
-    "best",
-    "",
+    "brilliant",
+    "sac",
     "",
     "+1.4 > +1.4",
     "Stockfish’s line: 5.Bxb8 Bxh1 6.Nh3 f6 (+1.4)",
-    "Bxb8 is spot on. Bxb8 trades the bishop for the knight."
+    "What a find: Bxb8. The bishop sacrifice works tactically. Bxb8 trades the bishop for the knight. White is now slightly better."
    ],
    [
     "Bxh1",
@@ -3205,12 +3219,12 @@
    ],
    [
     "Qxa3",
-    "great",
-    "only",
+    "best",
+    "",
     "",
     "-1.9 > -1.9",
     "Stockfish’s line: 16.Qxa3 Bg2 17.Bxg2 c6 18.Qa7 (-1.9)",
-    "Qxa3 is a great move. Everything else was much worse. Qxa3 wins the bishop on a3 for free and saves the queen from being captured. The next best move, Qf2, only gives -6.5."
+    "Qxa3 is exactly what the engine wanted. Qxa3 wins the bishop on a3 for free and saves the queen from being captured."
    ],
    [
     "Kd7",
@@ -3404,11 +3418,11 @@
    [
     "c7",
     "inaccuracy",
-    "",
+    "missCap",
     "c6b7",
     "-7.0 > -13.5",
     "Stockfish’s line after c7: 27.c7 Qc8 28.Nf3 Bxf3 29.Ke1 Bb7 (-13.5) / Better line: 27.cxb7 Rc8 28.bxc8=B Qxc8 (-7.0)",
-    "c7 is not the most accurate. Black answers Qc8 and wins a piece. Best was cxb7. It wins a bishop for a pawn."
+    "c7 is not the most accurate. White could have won the bishop on b7 with the pawn. Black answers Qc8 and wins a piece. The engine preferred cxb7. It wins a bishop for a pawn."
    ],
    [
     "Rd8+",
@@ -3422,11 +3436,11 @@
    [
     "Ke2",
     "blunder",
-    "hang",
+    "missCap",
     "c7d8q",
     "-1.9 > -11.3",
     "Stockfish’s line after Ke2: 28.Ke2 Qxc7 29.Nf3 Bxf3+ 30.Kxf3 (-11.3) / Better line: 28.cxd8=Q+ Kxd8 29.Kc1 (-1.9)",
-    "Ouch, Ke2 is a big blunder. The queen can capture the pawn on c7 for free. cxd8=Q+ was the better try. It promotes to a queen and wins a rook for a pawn. White is now completely lost."
+    "Ouch, Ke2 is a big blunder. A free rook on d8 was there for the pawn to take. Black answers Qxc7, which wins the pawn on c7 for free, and wins a rook. cxd8=Q+ was the better try. It promotes to a queen and wins a rook for a pawn. White is now completely lost."
    ],
    [
     "Nd4+",
@@ -3495,8 +3509,8 @@
  },
  "random game 2 (42 plies) / wild engine": {
   "acc": [
-   54.44,
-   50.23
+   28.63,
+   24.53
   ],
   "cnt": {
    "w": {
@@ -3657,11 +3671,11 @@
    [
     "Nh8",
     "blunder",
-    "swing",
+    "missCap+swing",
     "c3e4",
     "+0.2 > -12.9",
     "Stockfish’s line after Nh8: 6.Nh8 Na4 7.Nxe4 dxe4 8.Bxa7 Rxa7 9.Rad1 (-12.9) / Better line: 6.Nxe4 Kxf7 7.Nxf6 Kxf6 (+0.2)",
-    "Ouch, Nh8 is a big blunder. The game swings and White is now clearly worse. Nxe4 was the better try. It wins a queen for a knight and threatens the bishop on f6. White is now completely lost."
+    "Ouch, Nh8 is a big blunder. White could have won the queen on e4 with the knight. This turns the position in Black’s favour. The engine preferred Nxe4. It wins a queen for a knight and threatens the bishop on f6. White is now completely lost."
    ],
    [
     "Rxh3",
@@ -3946,8 +3960,8 @@
  },
  "random game 3 (31 plies) / steady engine": {
   "acc": [
-   28.44,
-   29.55
+   12.82,
+   12.61
   ],
   "cnt": {
    "w": {
@@ -3959,7 +3973,8 @@
    "b": {
     "blunder": 10,
     "miss": 3,
-    "best": 2
+    "best": 1,
+    "brilliant": 1
    }
   },
   "win": [
@@ -4009,11 +4024,11 @@
    [
     "bxa1=N",
     "blunder",
-    "hang",
+    "hang+missCap",
     "b2a1q",
     "-8.2 > -2.7",
     "Stockfish’s line after bxa1=N: 1…bxa1=N 2.Bxa3 gxh6 3.Qxa1 Bxa7 4.Nd2 Bxe4 (-2.7) / Better line: 1…bxa1=Q 2.Bxa3 Qxd1 3.Rxd1 gxh6 (-8.2)",
-    "bxa1=N is a blunder. The bishop can capture the queen on a3 for free. bxa1=Q was the better try. It promotes to a queen and wins a rook for a pawn. Black is now clearly better."
+    "bxa1=N is a blunder. The bishop can capture the queen on a3 for free. A free rook on a1 was there for the pawn to take. The engine preferred bxa1=Q. It promotes to a queen and wins a rook for a pawn. Black is now clearly better."
    ],
    [
     "Nh4",
@@ -4188,12 +4203,12 @@
    ],
    [
     "Qg4",
-    "best",
-    "",
+    "brilliant",
+    "sac",
     "",
     "-4.7 > -4.7",
     "Stockfish’s line: 11…Qg4 12.Rb2 Qxa4 13.Nxa4 Nc6 14.dxc6 (-4.7)",
-    "Top choice: Qg4."
+    "What a find: Qg4. Black gives up the queen but the follow-up justifies it. Black is now clearly better."
    ],
    [
     "Rc2",
@@ -4243,11 +4258,11 @@
    [
     "Rdg8",
     "blunder",
-    "thrown",
+    "missCap+thrown",
     "c4b2",
     "-8.0 > +9.8",
     "Stockfish’s line after Rdg8: 14…Rdg8 15.a8=Q+ Kd7 16.Qxg8 Rxg8 17.Re2 (+9.8) / Better line: 14…Nxb2 15.Rxb2 g5 16.Nb1 (-8.0)",
-    "Rdg8 is a blunder. Black was clearly winning and this throws most of it away. White answers a8=Q+, which gives check, and wins about 14 points of material. The engine preferred Nxb2. It wins a queen for a knight. Black is now completely lost."
+    "Rdg8 is a blunder. Black could have won the queen on b2 with the knight. Black was clearly winning and this throws most of it away. White answers a8=Q+, which gives check, and wins about 14 points of material. Nxb2 was the move. It wins a queen for a knight. Black is now completely lost."
    ],
    [
     "Qc1",
@@ -4280,16 +4295,17 @@
  },
  "random game 4 (49 plies) / wild engine": {
   "acc": [
-   42.54,
-   47.12
+   26.91,
+   31.56
   ],
   "cnt": {
    "w": {
-    "best": 3,
+    "brilliant": 1,
     "blunder": 16,
-    "great": 2,
+    "best": 3,
     "excellent": 1,
-    "miss": 3
+    "miss": 3,
+    "great": 1
    },
    "b": {
     "great": 2,
@@ -4353,12 +4369,12 @@
   "moves": [
    [
     "Rxf4+",
-    "best",
-    "",
+    "brilliant",
+    "sac",
     "",
     "+2.7 > +2.7",
     "Stockfish’s line: 1.Rxf4+ Kg5 2.e4 Kxf4 3.g4 (+2.7)",
-    "Rxf4+ is the best move. Rxf4+ wins the pawn on f4 for free and gives check."
+    "Rxf4+ is brilliant! A real sacrifice that the engine backs up. White gives up the rook but the follow-up justifies it. Rxf4+ wins the pawn on f4 for free and gives check. White is now clearly better."
    ],
    [
     "Kg3",
@@ -4407,12 +4423,12 @@
    ],
    [
     "Kxb5",
-    "great",
-    "only",
+    "best",
+    "",
     "",
     "+0.6 > +0.6",
     "Stockfish’s line: 4.Kxb5 (+0.6)",
-    "Kxb5 is the key move in this position. It is the only move that keeps things under control. Kxb5 wins the rook on b5 for free. The next best move, Ka6, only gives -2.6."
+    "Top choice: Kxb5. Kxb5 wins the rook on b5 for free."
    ],
    [
     "Kxh3",
@@ -4796,8 +4812,8 @@
  },
  "random game 5 (69 plies) / steady engine": {
   "acc": [
-   53.06,
-   49.86
+   30.62,
+   28.35
   ],
   "cnt": {
    "w": {
@@ -5516,12 +5532,13 @@
  },
  "random game 6 (33 plies) / wild engine": {
   "acc": [
-   84.36,
-   77.03
+   40.93,
+   26.07
   ],
   "cnt": {
    "w": {
-    "best": 7,
+    "best": 6,
+    "forced": 1,
     "blunder": 2,
     "inaccuracy": 1,
     "great": 1,
@@ -5595,12 +5612,12 @@
    ],
    [
     "Kxf2",
-    "best",
+    "forced",
     "",
     "",
     "-6.0 > -6.0",
     "Stockfish’s line: 2.Kxf2 Qa1 3.c8=N Qxa7+ 4.Nxa7 (-6.0)",
-    "Kxf2 is exactly what the engine wanted. Kxf2 wins the pawn on f2 for free."
+    "Kxf2 is forced. Kxf2 wins the pawn on f2 for free."
    ],
    [
     "Qe2+",
@@ -5876,8 +5893,8 @@
  },
  "random game 7 (12 plies) / steady engine": {
   "acc": [
-   70.82,
-   85.68
+   22.54,
+   79.52
   ],
   "cnt": {
    "w": {
@@ -6021,8 +6038,8 @@
  },
  "random game 8 (11 plies) / wild engine": {
   "acc": [
-   65.24,
-   45.26
+   26.65,
+   14.16
   ],
   "cnt": {
    "w": {
@@ -6065,11 +6082,11 @@
    [
     "Bb4+",
     "blunder",
-    "hang+thrown",
+    "missCap+hang+thrown",
     "f2d1",
     "-9.1 > +3.9",
     "Stockfish’s line after Bb4+: 8…Bb4+ 9.Kxf2 (+3.9) / Better line: 8…Nxd1 9.dxc8=Q Qxc8 10.Kxd1 (-9.1)",
-    "Bb4+ is a blunder. The king can capture the knight on f2 for free. This gives back a big advantage. The engine preferred Nxd1. It wins a queen for a knight. Black is now clearly worse."
+    "Bb4+ is a blunder. A free queen on d1 was there for the knight to take. The king can capture the knight on f2 for free. The engine preferred Nxd1. It wins a queen for a knight. Black is now clearly worse."
    ],
    [
     "Kxf2",

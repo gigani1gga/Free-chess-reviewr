@@ -1,19 +1,48 @@
-# Tests
+# game-review test kit
 
-Run everything: `./run-all.sh [path/to/game-review.zip]`
-(needs Node 18+, Python 3 with PyYAML, git, Google Chrome and the `playwright` npm package; set `PLAYWRIGHT_PATH` and `CHROME` if they are not in the usual places).
+Tests for the static chess game reviewer. No real Stockfish, no real chess.js, no network.
 
-Real Stockfish and npm are not available in the sandbox this was written in, so the suite replaces them:
+```
+PROJECT_ROOT=/path/to/game-review node kit.mjs verify --human
+```
 
-| Piece | What it is | Why you can trust it |
+| need | command |
+|---|---|
+| check after an edit (fast, change-aware) | `node kit.mjs verify` |
+| everything | `node kit.mjs verify --all` |
+| one suite / test | `node kit.mjs run unit` · `node kit.mjs run e2e --only keyboard` |
+| random games | `node kit.mjs fuzz [--seed N]` |
+| are the tests any good? | `node kit.mjs mutate [--deep]` |
+| try things by hand | `node kit.mjs play` |
+| environment problems | `node kit.mjs doctor` |
+| list / explain tests | `node kit.mjs list` · `node kit.mjs explain <id>` |
+
+Needs Node 20+. Browser suites and the playground also need Playwright and Chrome (`PLAYWRIGHT_PATH`, `CHROME_PATH`); the workflow suite needs python3 + pyyaml. Everything else runs on Node alone.
+
+## What is in it
+
+| suite | checks | about |
 |---|---|---|
-| `src/chess-core.js` | tiny stand-in for chess.js (only the API the app uses) | `perft.mjs` checks it against published move-count tables |
-| `src/mock-engine.js` | fake Stockfish web worker: same UCI conversation, loads its `.wasm` like the real one, plays by a tiny search | variants simulate a hung engine, a crash, a missing `.wasm`, noisy output, old-style options |
-| `build-site.mjs` | builds a copy of the deployed site (same folders as the workflow) | |
-| `server.mjs` | serves it like GitHub Pages: sub-path, 10-minute cache, no COOP/COEP headers | |
-| `workflow-test.py` | runs the real script blocks from `deploy.yml` with fake `npm`/`npx`/`curl` against a mock `stockfish@19.0.1` package | file names taken from the package README |
-| `e2e.mjs` | the real app in real Chrome (incl. playing Stockfish's lines on the board and "Ask Stockfish"). `E2E_ONLY='coach|Ask' node e2e.mjs` runs just the tests whose name matches | |
-| `unit.mjs` | grading maths, analysis logic, and `coach.js` (reasons and lines built from the engine's own lines: replay, material outcome, forks, rescues, mate wording) | positions are hand-made, so each expected sentence can be checked by eye |
+| static | syntax, imports, DOM ids, CSS classes, chess.js methods used, kit data | typos and dead references, instantly |
+| perft | move generator against published counts | the chess stand-in is right |
+| chess | stand-in vs an independent 0x88 generator on random games, SAN/PGN contract | the "chess.js" the tests use is right |
+| unit | win%, accuracy, grade boundaries, coach text, analysis scheduling | logic, both sides of every threshold |
+| fuzz | random games with oracle-verified lines, colour-swap and cache metamorphic tests, damaged PGNs, noisy UCI | bugs nobody thought of; shrinks to the shortest failing game |
+| snapshot | 24 golden reviews | unintended changes in output |
+| workflow | deploy.yml run in a sandbox | the published site is assembled correctly |
+| e2e | real Chrome, mock Stockfish (healthy, crashing, hanging, garbage, slow…), screen sizes, special games, keyboard, races | what a person would hit |
+| kit | the kit checks itself | the tools are trustworthy |
 
-What it can NOT tell you: how fast or how strong the real Stockfish 19 is, whether a phone has enough memory for the 94 MB build,
-or that the real npm package has exactly the layout the README describes. Those need one real deploy.
+Mutation score: 85% of 40 sampled mutants are caught by the Node suites alone (`node kit.mjs mutate`); `--deep` adds browser tests for the rest.
+
+Speed: the browser suite went from ~8 minutes to ~30 s (no service-worker wait, parallel pool, precomputed engine "book"); the Node suites take under 20 s together.
+
+## Playground
+
+`node kit.mjs play` opens the app next to a panel: pick a sample game, an engine variant (healthy, crash, hang, garbage, slow…), CPU/memory, phone screen, and what Lichess/Chess.com do (ok, slow, fail, timeout). The panel shows every UCI line in both directions, console errors, and lets you type UCI to a mock engine and run any test from the browser.
+
+## Layout
+
+`kit.mjs` CLI · `suites/` · `lib/` (framework, oracle, generators, mutation) · `src/` (chess stand-in + mock engine) · `playground/` · `snapshots/` · `data/mock-book.json` (precomputed searches, self-invalidating) · `build/` (output, safe to delete) · `AGENTS.md` · `kit.manifest.json`
+
+`engine-check.mjs` (real Stockfish compatibility) and `kit-selftest.mjs` are unchanged in purpose; see their headers.

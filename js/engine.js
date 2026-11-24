@@ -2,6 +2,7 @@
 // "best": full-strength Stockfish (big neural net, ~94 MB). "fast": Lite build, several workers.
 // Both are the single-threaded builds because GitHub Pages can't send the headers multi-threading needs, so extra speed
 // comes from running whole positions in parallel, one position per worker.
+import { parseInfo, goCommand } from './uci.js';
 const isMobile = () => navigator.userAgentData?.mobile ?? /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent || '');
 // The Lite build is tiny (about 2 MB plus a 16 MB hash per worker), so on a desktop it can use most of the cores. Phones and
 // devices that report less than 4 GB stay at 3. One core is always left for the page.
@@ -50,8 +51,11 @@ export class Engine {
     set('Contempt', 0);
     set('Analysis Contempt', 'Off');
     set('UCI_AnalyseMode', 'true');
+    // Win/draw/loss chances straight from Stockfish: the expected-points grading (rating.js) prefers them to a cp curve.
+    this.wdl = options.has('UCI_ShowWDL');
+    set('UCI_ShowWDL', 'true');
     // Names this exact engine setup: a result saved on the device (store.js) is only reused when all of this matches.
-    this.id = [this.main, this.name, 'mpv' + MULTIPV, 'hash' + PROFILE[this.kind].hash].join('|');
+    this.id = [this.main, this.name, 'mpv' + MULTIPV, 'hash' + PROFILE[this.kind].hash, this.wdl ? 'wdl' : 'cp'].join('|');
     await this.ask('isready', 'readyok', LOAD_MS);
     return this;
   }
@@ -94,25 +98,27 @@ export class Engine {
 
   // A deeper look with more candidate moves ("Ask Stockfish"). MultiPV goes back to its normal value afterwards, so the
   // worker stays the same engine setup that stored results were made with.
-  explore(fen, depth, n = 3) {
+  explore(fen, depth, n = 3) { return this.probe(fen, depth, { multipv: n }); }
+
+  // A question for Stockfish about one position (see brilliant.js). `moves` limits the search to those root moves ("how good is
+  // exactly this move?"); `multipv` asks for that many candidate lines. Same worker, same setup, MultiPV restored afterwards.
+  probe(fen, depth, { moves, multipv = MULTIPV } = {}) {
     return this.exclusive(async () => {
-      const can = this.options?.has('MultiPV');
-      if (can) this.send(`setoption name MultiPV value ${n}`);
-      try { return await this.search(fen, depth); }
+      const can = this.options?.has('MultiPV') && multipv !== MULTIPV;
+      if (can) this.send(`setoption name MultiPV value ${multipv}`);
+      try { return await this.search(fen, depth, moves); }
       finally { if (can) this.send(`setoption name MultiPV value ${MULTIPV}`); }
     });
   }
 
-  async search(fen, depth) {
+  async search(fen, depth, moves) {
     const lines = [];
     this.send('position fen ' + fen);
-    await this.ask('go depth ' + depth, 'bestmove', 120000, l => {
-      if (!l.startsWith('info') || / (lower|upper)bound/.test(l)) return;
-      const s = / score (cp|mate) (-?\d+)/.exec(l);
-      const p = / pv (.+)$/.exec(l);
-      if (!s || !p) return;
-      const k = +(/ multipv (\d+)/.exec(l)?.[1] ?? 1);
-      lines[k - 1] = { [s[1]]: +s[2], pv: p[1].trim().split(' ') };
+    await this.ask(goCommand(depth, moves), 'bestmove', 120000, l => {
+      const info = parseInfo(l);
+      if (!info) return;
+      const { k, depth: _d, seldepth, nodes, ...line } = info;
+      lines[k - 1] = line;
     });
     return lines.filter(Boolean);
   }

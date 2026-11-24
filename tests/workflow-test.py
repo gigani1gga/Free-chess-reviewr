@@ -11,7 +11,7 @@ steps = {s.get('name'): s for s in wf['jobs']['build']['steps'] if 'name' in s}
 ASSEMBLE = steps['Assemble site']['run']
 UNZIP = steps['Unzip, keep folders, replace older files']['run']
 
-ICONS = 'sparkles zap star thumbs-up check circle-alert triangle-alert x octagon-x skip-back skip-forward chevron-left chevron-right arrow-up-down'.split()
+ICONS = 'sparkles zap star thumbs-up book-open arrow-right check circle-alert triangle-alert x octagon-x skip-back skip-forward chevron-left chevron-right arrow-up-down'.split()
 
 FAKE_NPM = r'''#!/bin/bash
 # fake npm: only what deploy.yml calls

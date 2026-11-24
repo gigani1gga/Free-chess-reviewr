@@ -4,6 +4,7 @@
 // reported as FLAKY if the retry passes. On failure a screenshot, the page text, console errors and the engine commands are saved.
 import fs from 'node:fs';
 import path from 'node:path';
+import { pathToFileURL } from 'node:url';
 import { GAMES } from '../lib/games.mjs';
 import { serve } from '../server.mjs';
 import { launchOptions, loadPlaywright, siteDir, buildDir, defaultWorkers } from '../lib/env.mjs';
@@ -37,8 +38,10 @@ const CORES = n => `Object.defineProperty(navigator, 'hardwareConcurrency', { ge
 const MEMORY = n => `Object.defineProperty(navigator, 'deviceMemory', { get: () => ${n}, configurable: true });`;
 const MOBILE = `Object.defineProperty(navigator, 'userAgentData', { get: () => ({ mobile: true }), configurable: true });`;
 
-async function review(page, { pgn, link, strength, depth } = {}) {
+// `extra`: leave Stockfish's follow-up questions on. Off by default here, because most tests count the searches the engine is given.
+async function review(page, { pgn, link, strength, depth, extra = false } = {}) {
   await page.evaluate(() => { document.querySelector('details').open = true; });
+  await page.selectOption('#extra', extra ? 'on' : 'off');
   if (strength) await page.selectOption('#strength', strength);
   if (depth) await page.selectOption('#depth', String(depth));
   if (pgn != null) await page.fill('#pgn', pgn);
@@ -207,6 +210,81 @@ test('coach: a blunder shows Stockfish\'s answer and a better line; both can be 
   eq(await page.isHidden('#pvbar'), true, 'Back to game button leaves the preview');
   await page.click('#moves button[data-p="1"]');
   eq(await page.isHidden('#pvbar'), true, 'choosing another move leaves the preview');
+  clean(problems);
+  await ctx.close();
+});
+
+test('extra questions: Stockfish is asked for win/draw/loss, follow-up questions only when switched on, and the stats appear', async () => {
+  const run = async extra => {
+    const { page, problems, ctx } = await newPage({ init: [WORKER_SPY] });
+    const status = await review(page, { pgn: SCHOLAR, depth: 12, extra });
+    const per = await page.evaluate(() => window.__w.map(x => x.cmds)), w = per.flat();
+    const stats = await page.textContent('#stats');
+    clean(problems);
+    await ctx.close();
+    return { status, w, per, stats };
+  };
+  const off = await run(false), on = await run(true);
+  ok(/^Done/.test(off.status) && /^Done/.test(on.status), `both reviews finish: ${off.status} / ${on.status}`);
+  ok(off.w.some(c => c === 'setoption name UCI_ShowWDL value true'), 'Stockfish is asked for win/draw/loss chances');
+  ok(!off.w.some(c => /searchmoves/.test(c)), 'with the extra questions off, no restricted search is ever sent');
+  const asked = on.w.filter(c => /searchmoves/.test(c));
+  ok(asked.length > 0, 'with them on, Stockfish is asked about exact moves: ' + on.w.filter(c => c.startsWith('go')).join(' | '));
+  ok(asked.every(c => /^go depth \d+ searchmoves( [a-h][1-8][a-h][1-8][qrbn]?)+$/.test(c)), 'every restricted search names legal-looking moves: ' + asked.join(' | '));
+  for (const cmds of on.per) { // per engine: every question's MultiPV is put back, so each engine ends on its normal value
+    const mp = cmds.filter(c => c.startsWith('setoption name MultiPV'));
+    if (mp.length) eq(mp[mp.length - 1], 'setoption name MultiPV value 2', 'the engine ends on its normal MultiPV: ' + mp.join(' | '));
+  }
+  ok(on.per.some(cmds => cmds.filter(c => c.startsWith('setoption name MultiPV')).length > 1), 'MultiPV was changed for a question');
+  ok(/White/.test(on.stats) && /Black/.test(on.stats) && /Avg\. centipawn loss/.test(on.stats) && /Game rating/.test(on.stats), 'stats panel: ' + on.stats);
+});
+
+test('numbering: a game that starts with Black to move is numbered 1… 2. and the card agrees', async () => {
+  const { page, problems, ctx } = await newPage();
+  await review(page, { pgn: '[SetUp "1"]\n[FEN "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq - 0 1"]\n\n1... e5 2. Nf3 Nc6 *' });
+  eq((await page.$$eval('#moves .no', e => e.map(x => x.textContent))).join(' '), '1… 2.', 'move numbers in the list');
+  await page.click('#moves button[data-p="1"]');
+  ok(/1… e5/.test(await page.textContent('#card')), 'card header: ' + await page.textContent('#card'));
+  await page.click('#moves button[data-p="2"]');
+  ok(/2\. Nf3/.test(await page.textContent('#card')), 'second move is 2. Nf3');
+  clean(problems);
+  await ctx.close();
+});
+
+test('book: opening moves are labelled book, a chip counts them, and they are not errors', async () => {
+  const { page, problems, ctx } = await newPage();
+  await review(page, { pgn: RUY, depth: 12 });
+  const t = await page.$$eval('#moves button[data-p]', b => b.slice(0, 6).map(x => x.getAttribute('title') || x.innerHTML));
+  ok(t.every(x => /book/i.test(x)), 'first six moves are book: ' + t.join(' | '));
+  await page.click('#moves button[data-p="3"]');
+  ok(/book|opening theory/i.test(await page.textContent('#card')), 'card says it is theory: ' + await page.textContent('#card'));
+  ok(/book/i.test(await page.textContent('#acc')), 'a chip counts book moves');
+  clean(problems);
+  await ctx.close();
+});
+
+test('conversation: a brilliant move shows what Stockfish said, open by default; an ordinary move shows none', async () => {
+  const { parseGame, buildReview } = await import(pathToFileURL(path.join(SITE, 'js/analysis.js')).href);
+  const NSAC = '4k3/8/3p4/8/8/5N2/8/4K3 w - - 0 1';
+  const g = parseGame('[SetUp "1"]\n[FEN "' + NSAC + '"]\n\n1. Ne5 dxe5 *');
+  const win = cp => 50 + 50 * (2 / (1 + Math.exp(-0.00368208 * cp)) - 1);
+  const L = (cp, pv) => ({ cp, mate: null, pv, win: win(cp) });
+  const P = (fen, lines) => ({ fen, turn: fen.split(' ')[1], lines, win: lines[0].win, mate: null, cp: lines[0].cp, best: lines[0].pv[0] });
+  const R = buildReview(g, [
+    P(g.fens[0], [L(60, ['f3e5', 'd6e5', 'e1d2']), L(-20, ['e1d2', 'e8e7'])]),
+    P(g.fens[1], [L(60, ['d6e5', 'e1d2'])]),
+    P(g.fens[2], [L(60, ['e1d2'])]),
+  ], [{ deep: L(50, ['f3e5', 'd6e5']), deepBest: L(52, ['e1d2']), depth: 16 }], { book: false });
+  eq(R.items[0].cls, 'brilliant', 'the prepared game has a brilliant first move');
+  const { page, problems, ctx } = await newPage();
+  await page.evaluate(async r => { const ui = await import('./js/ui.js'); ui.showReview(r); }, R);
+  await page.click('#moves button[data-p="1"]');
+  eq(await page.isVisible('#talk'), true, 'conversation panel is shown for the brilliant move');
+  eq(await page.$eval('#talk', d => d.open), true, 'and open');
+  const t = await page.textContent('#talkbody');
+  ok(/really a sacrifice/.test(t) && /Yes/.test(t) && /How good/.test(t) && /depth 16/.test(t), 'conversation text: ' + t);
+  await page.click('#moves button[data-p="2"]');
+  eq(await page.isHidden('#talk'), true, 'no conversation on an ordinary move');
   clean(problems);
   await ctx.close();
 });

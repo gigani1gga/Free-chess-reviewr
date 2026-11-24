@@ -11,7 +11,7 @@
 <main>
   <h1>Game Review</h1>
   <p class="mut">Paste a Chess.com or Lichess game link. Stockfish runs on your device, free.</p>
-  <input id="link" aria-label="Game link" placeholder="https://www.chess.com/game/live/123456789" autocapitalize="off" autocorrect="off" inputmode="url">
+  <input id="link" placeholder="https://www.chess.com/game/live/123456789" autocapitalize="off" autocorrect="off" inputmode="url">
   <details>
     <summary>Options</summary>
     <label>Chess.com username (only if the link lookup fails)<input id="user" autocapitalize="off"></label>
@@ -27,6 +27,12 @@
         <option value="16" selected>Standard (16)</option>
         <option value="18">Deep (18)</option>
         <option value="20">Very deep (20)</option>
+      </select>
+    </label>
+    <label>Extra Stockfish questions
+      <select id="extra">
+        <option value="on" selected>On: check brilliant moves and mistakes with follow-up questions (a little slower)</option>
+        <option value="off">Off: grade from the first analysis only</option>
       </select>
     </label>
     <label>Or paste a PGN<textarea id="pgn"></textarea></label>
@@ -53,12 +59,14 @@
     <div id="ev" class="mut"></div>
     <div id="engine" class="mut"></div>
     <div id="card" class="card"></div>
+    <details id="talk" hidden><summary>What Stockfish said about this move</summary><div id="talkbody"></div></details>
     <div id="pvbar" hidden><span id="pvtxt"></span><button id="pvexit">Back to game</button></div>
     <div id="lines"></div>
     <button id="ask" class="ask">Ask Stockfish what it would play here</button>
     <div id="answer" aria-live="polite"></div>
     <div id="graph"></div>
     <div id="acc"></div>
+    <div id="stats"></div>
     <div id="moves"></div>
   </section>
 </main>

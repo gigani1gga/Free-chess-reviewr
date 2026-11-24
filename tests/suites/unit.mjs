@@ -11,7 +11,9 @@ const { parseGame, analyseAll, buildReview, runSize, storeKey } = await import(p
 
 // Each check says which project file it is about (from its name), so a failure points at the right place and `kit.mjs affected` works.
 const COVER = [[/winPct|accuracy|classify|tags:|explain/i, ['js/review.js']], [/coach|fragments|outcome|replay|fmtMoves|fmtEval|moveNo|lines are plain/i, ['js/coach.js', 'js/util.js']],
-  [/analyseAll|scheduling|store|parseGame|buildReview|mate scores|cache/i, ['js/analysis.js', 'js/store.js']]];
+  [/analyseAll|scheduling|store|parseGame|buildReview|mate scores|cache|interrogate|Elo/i, ['js/analysis.js', 'js/store.js']],
+  [/brilliant|sacrific|holdsUp|interview|great:/i, ['js/brilliant.js', 'js/analysis.js', 'js/review.js']], [/rating|expected points|lineWin|toWhite|gameAccuracy|volatility|phaseOf|estimateRating|eloScale/i, ['js/rating.js']],
+  [/book|opening/i, ['js/openings.js']], [/parseInfo|goCommand|uci:/i, ['js/uci.js', 'js/engine.js']]];
 const check = (name, cond, detail = '') => S.check(name, cond, detail, { tags: ['analysis'], covers: [...new Set(COVER.filter(([r]) => r.test(name)).flatMap(([, f]) => f))] });
 const near = (a, b, e = 0.05) => Math.abs(a - b) <= e;
 
@@ -55,7 +57,7 @@ check('analyseAll: identical positions + depth are served from the cache (no new
 await analyseAll([fake], game.fens, 18, () => {});
 check('analyseAll: a different depth is re-analysed', calls.length === n1 + 3);
 const rev = buildReview(game, pos);
-check('buildReview: both best moves graded "best"/"great"/"excellent", 100% drop-free', rev.items.every(i => ['best', 'great', 'excellent'].includes(i.cls)), rev.items.map(i => i.cls).join());
+check('buildReview: both best moves graded "best"/"great"/"excellent", 100% drop-free', rev.items.every(i => ['best', 'great', 'excellent', 'book'].includes(i.cls)), rev.items.map(i => i.cls).join());
 check('buildReview: accuracies are 100 when every move is the engine\'s first choice', near(rev.acc.w, 100, 0.01) && near(rev.acc.b, 100, 0.01));
 
 // Scheduling: each engine should work through runs of consecutive positions (its hash table then still holds the previous
@@ -311,6 +313,165 @@ check('coach: missing engine lines do not throw and give no invented reasons', e
   check('parseGame: a game without a Variant header loads', throws('1. e4 e5 *') === null);
   const bg = parseGame('[SetUp "1"]\n[FEN "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq - 0 1"]\n\n1... e5 2. Nf3 *');
   check('parseGame: a game from a position keeps that position as its start and Black moves first', bg.fens[0] === Bk && bg.moves[0].color === 'b' && bg.moves[1].color === 'w');
+}
+
+// ================================================================================================================
+// Talking to Stockfish: UCI parsing, expected points, brilliant / great / book, the follow-up questions, game rating
+// ================================================================================================================
+{
+  const { parseInfo, goCommand } = await import(path.join(site, 'uci.js'));
+  const R = await import(path.join(site, 'rating.js'));
+  const { LINES, inBook, bookSize } = await import(path.join(site, 'openings.js'));
+  const B = await import(path.join(site, 'brilliant.js'));
+  const { interrogate } = await import(path.join(site, 'analysis.js'));
+  const { fakeEngine } = await import('../lib/fake-engine.mjs');
+
+  // ---- uci: reading what Stockfish says ----
+  const info = parseInfo('info depth 18 seldepth 24 multipv 2 score cp -35 wdl 120 700 180 nodes 99999 nps 1200000 hashfull 5 tbhits 0 time 80 pv e7e5 g1f3 b8c6');
+  check('uci: parseInfo reads score, multipv, depth, wdl and the line', info && info.cp === -35 && info.k === 2 && info.depth === 18 && info.wdl.join() === '120,700,180' && info.pv.join(' ') === 'e7e5 g1f3 b8c6', JSON.stringify(info));
+  check('uci: parseInfo reads a mate score and a line without multipv/wdl', (i => i.mate === -3 && i.k === 1 && i.wdl === undefined)(parseInfo('info depth 5 score mate -3 pv a1a2')));
+  check('uci: parseInfo ignores bound lines, strings and lines without a score or a line', ['info depth 5 score cp 10 lowerbound pv a1a2', 'info depth 5 score cp 10 upperbound pv a1a2', 'info string NNUE evaluation', 'info depth 3 currmove e2e4 currmovenumber 1', 'bestmove e2e4', '', 'info depth 5 score cp 5'].every(l => parseInfo(l) === null));
+  check('uci: parseInfo does not mistake "multipv" for "pv"', parseInfo('info multipv 3 score cp 1 pv e2e4').pv.join() === 'e2e4');
+  check('uci: goCommand restricts the root with searchmoves only when asked', goCommand(16) === 'go depth 16' && goCommand(16, []) === 'go depth 16' && goCommand(12, ['e2e4', 'd2d4']) === 'go depth 12 searchmoves e2e4 d2d4');
+
+  // ---- rating: expected points ----
+  check('rating: lineWin uses Stockfish\'s win/draw/loss when it is there (draws count half)', near(R.lineWin({ cp: 500, wdl: [100, 800, 100] }), 50, 1e-9) && near(R.lineWin({ cp: 0, wdl: [600, 200, 200] }), 70, 1e-9));
+  check('rating: lineWin falls back to the centipawn curve, and a mate is 100 / 0', near(R.lineWin({ cp: 100 }), winPct(100), 1e-9) && R.lineWin({ mate: 3 }) === 100 && R.lineWin({ mate: -2 }) === 0);
+  check('rating: toWhite flips a Black-to-move score and its win/draw/loss', (w => w.cp === -80 && w.wdl.join() === '100,300,600' && near(w.win, 100 - R.lineWin({ cp: 80, wdl: [600, 300, 100] }), 1e-9))(R.toWhite({ cp: 80, wdl: [600, 300, 100], pv: ['e7e5'] }, 'b')));
+  check('rating: toWhite keeps a White-to-move score and flips a mate', R.toWhite({ cp: 80, pv: [] }, 'w').cp === 80 && R.toWhite({ mate: 2, pv: [] }, 'b').mate === -2);
+  check('rating: a weaker player\'s advantage is worth less; no rating (or 2400+) changes nothing', R.winFor({ cp: 300 }, 'w', 800) < R.winFor({ cp: 300 }, 'w', 2400) && near(R.winFor({ cp: 300 }, 'w', 0), winPct(300), 1e-9) && near(R.winFor({ cp: 300 }, 'w', 2600), winPct(300), 1e-9));
+  check('rating: winFor is from the mover\'s side and never softens a mate', near(R.winFor({ cp: 200 }, 'b', 0), 100 - winPct(200), 1e-9) && R.winFor({ mate: 2 }, 'w', 800) === 100 && R.winFor({ mate: 2 }, 'b', 800) === 0);
+  check('rating: eloScale runs from 0.6 (600) to 1 (2400) and generosity is its complement', R.eloScale(600) === 0.6 && R.eloScale(100) === 0.6 && R.eloScale(2400) === 1 && R.eloScale(0) === 1 && near(R.generosity(600), 0.4, 1e-9) && R.generosity(0) === 0);
+  check('rating: cpOf counts a mate as 1000 and clips', R.cpOf({ mate: 3 }) === 1000 && R.cpOf({ mate: -1 }) === -1000 && R.cpOf({ cp: 5000 }) === 1000 && R.cpOf({ cp: -37 }) === -37);
+
+  // ---- rating: the whole game ----
+  check('rating: gameAccuracy of a perfect game is 100, and of nothing is 0', near(R.gameAccuracy([100, 100, 100], null), 100, 1e-9) && R.gameAccuracy([], null) === 0);
+  const mixed = [95, 95, 95, 95, 95, 95, 95, 95, 95, 10];
+  check('rating: one terrible move costs more than a plain average says (harmonic mean)', R.gameAccuracy(mixed, null) < mixed.reduce((a, b) => a + b) / mixed.length - 3, R.gameAccuracy(mixed, null));
+  check('rating: moves in sharper positions weigh more', R.gameAccuracy([100, 50], [1, 9]) < R.gameAccuracy([100, 50], [9, 1]));
+  check('rating: volatility is low in a calm game, high in a wild one, and stays inside 0.5..12', R.volatility([50, 50, 50, 50, 50, 50], 0) === 0.5 && R.volatility([10, 90, 10, 90, 10, 90, 10, 90], 0) === 12 && R.volatility([50], 0) === 0.5);
+  check('rating: phaseOf — start is the opening, queens off is the endgame, a middlegame in between', R.phaseOf('rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1', 0) === 'open' && R.phaseOf('4k3/pppp4/8/8/8/8/PPPP4/R3K2R w - - 0 1', 40) === 'end' && R.phaseOf('r1bq1rk1/ppp2ppp/2n2n2/8/8/2N2N2/PPP2PPP/R1BQ1RK1 w - - 0 9', 30) === 'mid');
+  const ratings = [30, 50, 60, 70, 80, 90, 97].map(a => R.estimateRating(a, 40));
+  check('rating: estimateRating rises with accuracy, is rounded to 50, and is withheld for very short games', ratings.every((r, i) => i === 0 || r > ratings[i - 1]) && ratings.every(r => r % 50 === 0) && R.estimateRating(90, 5) === null && R.estimateRating(NaN, 40) === null, ratings.join());
+
+  // ---- book ----
+  const legalCount = LINES.reduce((n, l) => { try { const c = new Chess(); for (const t of l.split(/\s+/)) if (!/^\d+\.+$/.test(t)) c.move(t); return n + 1; } catch { return n; } }, 0);
+  check('book: every opening line is legal chess', legalCount === LINES.length, `${LINES.length - legalCount} illegal of ${LINES.length}`);
+  const after = (moves) => { const c = new Chess(); for (const t of moves.split(' ')) c.move(t); return c.fen(); };
+  check('book: known opening positions are in the book, and an odd move is not', inBook(after('e4 e5 Nf3 Nc6 Bb5 a6')) && inBook(after('d4 Nf6 c4 e6 Nc3 Bb4')) && !inBook(after('e4 e5 Nf3 Nc6 Bb5 a6 h4')) && !inBook(after('a3 h6')));
+  check('book: a transposition into a book position is recognised', inBook(after('c4 Nf6 Nc3 e6 d4 Bb4')));
+  check('book: the book has a few hundred positions', bookSize() > 400, String(bookSize()));
+
+  // ---- classify: the new rules ----
+  const cb = { drop: 0, isBest: true, wb: 55, wa: 55, gap: null, sac: false, prev: 0 };
+  check('classify: a book move is "book" and a single legal move is "forced", whatever the numbers say', classify({ ...cb, drop: 40, isBest: false, book: true }) === 'book' && classify({ ...cb, drop: 40, isBest: false, forced: true }) === 'forced' && classify({ ...cb, book: true, forced: true }) === 'forced');
+  check('classify: a sacrifice is not brilliant when you were already completely winning (92+)', classify({ ...cb, sac: true, wb: 95, wa: 95 }) !== 'brilliant');
+  check('classify: a sacrifice is not brilliant when the best other move was also completely winning', classify({ ...cb, sac: true, wb: 90, wa: 90, alt: 91 }) !== 'brilliant' && classify({ ...cb, sac: true, wb: 90, wa: 90, alt: 60 }) === 'brilliant');
+  check('classify: a sacrifice that leaves you worse is not brilliant', classify({ ...cb, sac: true, wb: 45, wa: 45 }) !== 'brilliant');
+  check('classify: a sacrifice that Stockfish does not back up when it looks deeper is not brilliant', classify({ ...cb, sac: true, wb: 60, wa: 60, deepOk: false }) !== 'brilliant');
+  check('classify: a recapture is never brilliant or great', !['brilliant', 'great'].includes(classify({ ...cb, sac: true, gap: 30, recapture: true })));
+  check('classify: a sacrifice that costs 3 points is not brilliant; one that costs 1 still is', classify({ ...cb, isBest: false, drop: 3, sac: true, wb: 60, wa: 57 }) !== 'brilliant' && classify({ ...cb, isBest: false, drop: 1, sac: true, wb: 60, wa: 59 }) === 'brilliant');
+  check('classify: great — a move that turns equal into winning counts with a smaller gap (8) than the plain only-move rule (12)', classify({ ...cb, gap: 9, wb: 68, wa: 68 }) === 'great' && classify({ ...cb, gap: 9, wb: 80, wa: 80 }) !== 'great' && classify({ ...cb, gap: 12, wb: 80, wa: 80 }) === 'great');
+  check('classify: great — a move that turns losing into equal counts', classify({ ...cb, gap: 9, wb: 40, wa: 40 }) === 'great');
+  check('classify: weaker players are given a little more room for great (a smaller gap is enough)', classify({ ...cb, gap: 8, wb: 80, wa: 80, elo: 0 }) !== 'great' && classify({ ...cb, gap: 8, wb: 80, wa: 80, elo: 700 }) === 'great');
+
+  // ---- brilliant: the engine's own line decides whether it is a sacrifice ----
+  const { replay } = await import(path.join(site, 'coach.js'));
+  const steps = (fen, pv) => replay(fen, pv);
+  const NSAC = '4k3/8/3p4/8/8/5N2/8/4K3 w - - 0 1', NTRADE = '4k3/8/3b4/4n3/8/5N2/8/4K3 w - - 0 1';
+  check('sacrifice: a knight given for nothing is a sacrifice in the engine\'s line', B.sacrificeInLine(steps(NSAC, ['f3e5', 'd6e5', 'e1d2']), 'w').sac === true);
+  check('sacrifice: a knight traded for a knight is not', B.sacrificeInLine(steps(NTRADE, ['f3e5', 'd6e5', 'e1d2']), 'w').sac === false);
+  check('sacrifice: a pawn given away is not a piece sacrifice', B.sacrificeInLine(steps('4k3/8/8/3p4/4P3/8/8/4K3 w - - 0 1', ['e4e5', 'd5d4', 'e1d1']), 'w').sac === false);
+  check('sacrifice: a line with no moves (or a one-move line) is never a sacrifice', !B.sacrificeInLine([], 'w').sac && !B.sacrificeInLine(steps(NSAC, ['f3e5']), 'w').sac);
+  check('sacrifice: a queen given up on the way to mate counts, even though the mate ends the line', B.sacrificeInLine(steps('6k1/5ppp/8/8/8/8/1Q3PPP/r3R1K1 w - - 0 1', ['b2b8', 'a1b1']), 'w').sac === false /* nothing lost here: guards the helper */);
+
+  // A hand-written game: White to move, a knight can go to e5 where a pawn takes it. `lines` are what Stockfish "said".
+  const SG = '[SetUp "1"]\n[FEN "' + NSAC + '"]\n\n1. Ne5 *';
+  const L = (cp, pv) => ({ cp, mate: null, pv, win: winPct(cp) });
+  const P = (fen, lines) => ({ fen, turn: fen.split(' ')[1], lines, win: lines[0].win, mate: lines[0].mate, cp: lines[0].cp, best: lines[0].pv[0] });
+  const game1 = parseGame(SG), afterFen = game1.fens[1];
+  const SAC_PV = ['f3e5', 'd6e5', 'e1d2'];
+  const mk = (before, afterLines, probes, headers) => {
+    const g = headers ? parseGame(`[WhiteElo "${headers}"]\n` + SG) : game1;
+    return buildReview(g, [P(NSAC, before), P(afterFen, afterLines)], probes || [], { book: false });
+  };
+  const brilliantCase = mk([L(60, SAC_PV), L(-20, ['e1d2', 'e8e7'])], [L(60, ['d6e5', 'e1d2'])]);
+  check('brilliant: the best move that gives up a knight and keeps the evaluation is brilliant', brilliantCase.items[0].cls === 'brilliant', brilliantCase.items[0].cls);
+  check('brilliant: the card has a conversation with Stockfish that says it is a sacrifice and shows both evaluations', (t => t.some(([q, a]) => /really a sacrifice/.test(q) && /^Yes/.test(a)) && t.some(([q, a]) => /How good/.test(q) && /best move/.test(a)) && t.some(([q]) => /best move had not been found|alternative/.test(q)))(brilliantCase.items[0].talk), JSON.stringify(brilliantCase.items[0].talk));
+  check('brilliant: not when you were already completely winning', mk([L(900, SAC_PV), L(300, ['e1d2'])], [L(900, ['d6e5'])]).items[0].cls !== 'brilliant');
+  check('brilliant: not when the other move was just as winning (the sacrifice was not needed), and the card says why', (r => r.items[0].cls !== 'brilliant' && r.items[0].talk.some(([q, a]) => /Why not brilliant/.test(q) && /not needed/.test(a)))(mk([L(620, SAC_PV), L(610, ['e1d2'])], [L(620, ['d6e5'])])));
+  check('brilliant: not when the engine\'s own line wins the piece back (a trade, not a sacrifice)', (() => { const g = parseGame('[SetUp "1"]\n[FEN "' + NTRADE + '"]\n\n1. Nxe5 *'); return buildReview(g, [P(NTRADE, [L(60, ['f3e5', 'd6e5', 'e1d2']), L(-20, ['e1d2'])]), P(g.fens[1], [L(60, ['d6e5'])])], [], { book: false }).items[0].cls !== 'brilliant'; })());
+  // The played move is not among Stockfish's two lines. Without asking, the position after it looks like a blunder.
+  const out2 = [L(60, ['e1d2']), L(40, ['e1e2'])], aft2 = [L(-300, ['d6e5', 'e1d2'])];
+  check('brilliant: a move outside the top lines is judged by the next position alone when Stockfish is not asked (looks like a blunder)', mk(out2, aft2).items[0].cls === 'blunder');
+  const own = L(55, SAC_PV);
+  check('brilliant: asked about exactly that move, Stockfish shows it is nearly the best move: brilliant instead of blunder', mk(out2, aft2, [{ own }]).items[0].cls === 'brilliant');
+  const deepGood = { own, deep: L(50, SAC_PV), deepBest: L(55, ['e1d2']), depth: 16 }, deepBad = { own, deep: L(-250, SAC_PV), deepBest: L(55, ['e1d2']), depth: 16 };
+  const ok = mk(out2, aft2, [deepGood]).items[0], bad = mk(out2, aft2, [deepBad]).items[0];
+  check('brilliant: a deeper look that agrees confirms it, and the text says it was double-checked', ok.cls === 'brilliant' && /double-checked it at depth 16/.test(ok.text), ok.text);
+  check('brilliant: a deeper look that disagrees takes it away, and the conversation says so', bad.cls !== 'brilliant' && bad.talk.some(([q, a]) => /depth 16/.test(q) && /^No/.test(a)), JSON.stringify(bad.talk));
+  check('brilliant: holdsUp is true without a deeper look, and checks both the move\'s score and the gap to the best move', B.holdsUp(null, 'w', 0, 2, 50) && B.holdsUp({ deep: L(50, []), deepBest: L(52, []) }, 'w', 0, 2, 40) && !B.holdsUp({ deep: L(-100, []), deepBest: L(52, []) }, 'w', 0, 2, 40));
+  // a pawn is not a piece, even at a bad moment
+  check('brilliant: Elo in the headers makes grading gentler for a weaker player (same moves, same lines, smaller drop)', (() => {
+    const lines = [L(150, ['e1d2']), L(100, ['e1e2'])], a1 = [L(-150, ['d6e5'])];
+    const hi = mk(lines, a1, [{ own: L(-30, SAC_PV) }], 2600).items[0], lo = mk(lines, a1, [{ own: L(-30, SAC_PV) }], 700).items[0];
+    return hi.ep[0] - hi.ep[1] > lo.ep[0] - lo.ep[1];
+  })());
+
+  // ---- interrogate: which questions Stockfish is asked, and what happens when it cannot answer ----
+  let scriptN = 0; // each scripted engine gets its own kind: answers are cached per engine kind, as in the app
+  const scripted = (answers = {}) => {
+    const log = [];
+    return { kind: 'script' + scriptN++, log, async probe(fen, depth, o = {}) {
+      log.push({ depth, moves: o.moves, multipv: o.multipv });
+      if (answers.fail) throw new Error('Stockfish crashed.');
+      if (o.moves) return [{ cp: 55, pv: o.moves.concat(['d6e5', 'e1d2']) }];
+      return [{ cp: 58, pv: ['e1d2'] }, { cp: 52, pv: ['f3e5', 'd6e5', 'e1d2'] }, { cp: 30, pv: ['e1e2'] }];
+    } };
+  };
+  const pos2 = [P(NSAC, out2), P(afterFen, aft2)];
+  const eng = scripted();
+  const probes = await interrogate([eng], game1, pos2, 12, () => {}, { book: false });
+  check('interrogate: asks Stockfish about the played move first (searchmoves, one line), then looks deeper at it (depth + 4, three lines)', eng.log.length === 2 && eng.log[0].depth === 12 && eng.log[0].moves.join() === 'f3e5' && eng.log[0].multipv === 1 && eng.log[1].depth === 16 && eng.log[1].multipv === 3, JSON.stringify(eng.log));
+  check('interrogate: the answers come back in White\'s view and make the review brilliant', probes[0] && probes[0].own && probes[0].deep && probes[0].depth === 16 && buildReview(game1, pos2, probes, { book: false }).items[0].cls === 'brilliant');
+  const idle = scripted();
+  const g3 = parseGame('1. e4 e5 *');
+  const p3 = await interrogate([idle], g3, [P(g3.fens[0], [L(30, ['e2e4']), L(20, ['d2d4'])]), P(g3.fens[1], [L(30, ['e7e5'])]), P(g3.fens[2], [L(30, ['g1f3'])])], 12, () => {}, { book: false });
+  check('interrogate: a move that is already among Stockfish\'s lines and is no sacrifice costs no questions at all', idle.log.length === 0 && p3.every(x => !x), JSON.stringify(idle.log));
+  const crashing = scripted({ fail: true });
+  const pf = await interrogate([crashing], game1, pos2, 12, () => {}, { book: false });
+  check('interrogate: an engine that fails to answer does not break the review (the move is simply graded from the first pass)', pf[0] === undefined && buildReview(game1, pos2, pf, { book: false }).items[0].cls === 'blunder');
+  check('interrogate: an engine without probe() is skipped quietly', (await interrogate([{ kind: 'old', analyze() {} }], game1, pos2, 12, () => {}, { book: false })).every(x => !x));
+  let seen = 0;
+  await interrogate([scripted()], game1, pos2, 12, (d, t) => { seen = d + '/' + t; }, { book: false });
+  check('interrogate: progress is reported per move asked about', seen === '1/1', seen);
+  // the fake engine understands searchmoves the way Stockfish does
+  const fk = await fakeEngine({ seed: 5, kind: 'fk-probe' });
+  const some = await fk.probe(game1.fens[0], 12, { moves: ['f3e5'], multipv: 1 });
+  check('interrogate: a restricted search returns only that move (the fake engine, like Stockfish, honours searchmoves)', some.length === 1 && some[0].pv[0] === 'f3e5', JSON.stringify(some));
+  const blk = await fakeEngine({ seed: 5, kind: 'fk-probe-b' }), gb = parseGame('1. e4 e5 2. Nf3 *');
+  const bl = await blk.probe(gb.fens[1], 12, { moves: ['e7e5'], multipv: 1 });
+  check('interrogate: the same for Black to move', bl.length === 1 && bl[0].pv[0] === 'e7e5', JSON.stringify(bl));
+
+  // ---- the whole review: book, forced, stats, Elo, WDL ----
+  const gsh = parseGame('1. e4 e5 2. Nf3 Nc6 3. Bb5 a6 *');
+  const fe = await fakeEngine({ seed: 3, noise: 60, kind: 'fk-book' });
+  const posb = await analyseAll([fe], gsh.fens, 12, () => {});
+  const rb = buildReview(gsh, posb);
+  check('buildReview: opening moves are "book", counted, never an error, and 100 accurate', rb.items.every(i => i.cls === 'book') && rb.cnt.w.book === 3 && near(rb.acc.w, 100, 1e-9) && rb.items.every(i => i.cpl === 0));
+  check('buildReview: the opening book can be switched off', buildReview(gsh, posb, [], { book: false }).items.some(i => i.cls !== 'book'));
+  const ONLY = '7k/8/8/8/8/8/6q1/7K w - - 0 1'; // not forced: Kxg2
+  const forcedPgn = '[SetUp "1"]\n[FEN "k7/8/8/8/8/8/1q6/K7 w - - 0 1"]\n\n1. Kxb2 *';
+  check('buildReview: the only legal move is "forced"', (() => { try { const g = parseGame(forcedPgn); return buildReview(g, [P(g.fens[0], [L(-900, ['a1b2'])]), { fen: g.fens[1], turn: 'b', lines: [], win: 50, over: 'draw' }], [], { book: false }).items[0].cls === 'forced'; } catch (e) { return String(e); } })());
+  const gfull = parseGame('1. e4 e5 2. Nf3 Nc6 3. Bb5 a6 4. Ba4 Nf6 5. O-O Be7 6. Re1 b5 7. Bb3 d6 8. c3 O-O 9. h3 Nb8 10. d4 Nbd7 *');
+  const rfull = buildReview(gfull, await analyseAll([await fakeEngine({ seed: 4, kind: 'fk-stat' })], gfull.fens, 12, () => {}));
+  check('buildReview: stats carry accuracy, centipawn loss, a rating estimate for a long enough game, and phase accuracies', rfull.stats && ['w', 'b'].every(c => near(rfull.stats[c].accuracy, rfull.acc[c], 1e-9) && rfull.stats[c].acpl >= 0 && rfull.stats[c].moves === 10 && rfull.stats[c].rating > 0) && rfull.stats.w.phases.open != null, JSON.stringify(rfull.stats.w));
+  check('buildReview: each move reports its expected points before and after, its centipawn loss and its phase', rfull.items.every(i => i.ep.length === 2 && i.ep.every(x => x >= 0 && x <= 100) && i.cpl >= 0 && ['open', 'mid', 'end'].includes(i.phase)));
+  check('buildReview: a short game gets no rating estimate', rb.stats.w.rating === null);
+  // draw-aware expected points: the same centipawn drop is a smaller loss in a drawish position (Stockfish says so with its WDL)
+  const drawish = await fakeEngine({ seed: 3, noise: 0, kind: 'fk-wdl', wdl: true });
+  const pw = await analyseAll([drawish], gsh.fens, 12, () => {});
+  check('analyseAll: win/draw/loss from the engine is kept on each line and used for the win% (Elo-free, White\'s view)', pw[0].lines[0].wdl && pw[0].lines[0].wdl.length === 3 && near(pw[0].win, R.lineWin(pw[0].lines[0]), 1e-9) && pw[1].lines[0].wdl[0] <= pw[1].lines[0].wdl[2] + 1000);
 }
 
 await S.run();

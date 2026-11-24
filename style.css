@@ -79,3 +79,10 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
 #stage .boardrow,#stage .nav{max-width:calc(42vh + 18px);margin-inline:auto}
 @supports (height:1dvh){#stage .boardrow,#stage .nav{max-width:calc(42dvh + 18px)}}
 #stage .nav{margin-top:6px}
+
+#stats{display:flex;gap:10px;margin-top:8px;font:.8rem system-ui,sans-serif}
+#stats .st{flex:1;background:var(--card);border:1px solid var(--line);border-radius:8px;padding:8px 10px}
+#stats .st i{font-style:normal;font-weight:600}
+#talk{margin-top:8px;background:var(--card);border:1px solid var(--line);border-radius:8px;padding:6px 10px;font:.85rem system-ui,sans-serif}
+#talk summary{cursor:pointer}
+#talk p{margin:.5em 0}

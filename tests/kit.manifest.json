@@ -1,0 +1,39 @@
+{
+  "name": "game-review-test-kit",
+  "schema": 1,
+  "purpose": "Tests for the static chess game reviewer (Stockfish in Web Workers, win%/accuracy grading, coach text, storage). Runs without the real Stockfish or chess.js.",
+  "entry": "node kit.mjs <command>",
+  "env": {
+    "PROJECT_ROOT": "path of the app (folder with index.html and js/). Default: parent of the kit, cwd, siblings.",
+    "PLAYWRIGHT_PATH": "path of the playwright package (browser suites and playground only)",
+    "CHROME_PATH": "Chrome/Chromium binary (browser suites and playground only)",
+    "KIT_SEED": "seed for fuzzing (same as --seed)",
+    "KIT_SITE": "directory of the built test site (default build/site)",
+    "KIT_BUILD": "directory for reports, artifacts and the built site (default build/)"
+  },
+  "commands": {
+    "verify": "run what your changes can affect; everything on the first run or with --all. Writes build/last-green.json when green",
+    "run [suite..]": "static perft chess kit unit fuzz snapshot workflow e2e; flags --only <regex> --tag <t> --seed N --fast --workers N --retries N --bail --strict --budget-ms N",
+    "list [--suite s]": "every test id, tags and covered project files (build/index.json)",
+    "explain <id>": "source snippet, files, last failure and rerun command of one test",
+    "affected [files..]": "tests touched by changed files (default: changed since last green)",
+    "fuzz [--seed N]": "chess + fuzz suites with a printed seed",
+    "mutate [--max N] [--deep]": "mutation testing: breaks the app's code on purpose and checks the tests notice",
+    "snapshot [--update]": "golden reviews; --update accepts current output",
+    "doctor": "environment check",
+    "build": "build build/site",
+    "book": "rebuild data/mock-book.json after editing src/chess-core.js or src/mock-engine.js",
+    "play": "interactive playground on http://127.0.0.1:7777/",
+    "selftest": "prove the kit notices broken Stockfish builds",
+    "engine": "check a real Stockfish binary: node engine-check.mjs --bin <path>"
+  },
+  "output": "JSON on one line when stdout is not a terminal (or --json), human text with --human",
+  "files": {
+    "build/report.json": "full machine-readable report (schema 1): summary, suites, failures[{id,detail,hint,covers,artifacts,rerun,explain}], flaky, warnings, knownBugs, slowest",
+    "build/report.md": "the same, short, for reading",
+    "build/index.json": "test index",
+    "build/artifacts/<suite>__<test>/": "failure.txt, screenshots of failed browser tests"
+  },
+  "statuses": ["pass", "fail", "flaky (passed only on retry)", "skip", "xfail (known bug, still failing)", "xpass (known bug fixed: remove xfail)", "warn"],
+  "exitCodes": { "0": "all passed", "1": "test failures (or xpass; flaky with --strict)", "2": "environment problem", "3": "usage error" }
+}

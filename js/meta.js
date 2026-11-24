@@ -6,6 +6,8 @@ export const META = {
   best:       { color: '#7fa650', label: 'best',       icon: 'star' },
   excellent:  { color: '#8fb35a', label: 'excellent',  icon: 'thumbs-up' },
   good:       { color: '#97a0a8', label: 'good',       icon: 'check' },
+  book:       { color: '#a88865', label: 'book',       icon: 'book-open' },
+  forced:     { color: '#8f9aa6', label: 'forced',     icon: 'arrow-right' },
   inaccuracy: { color: '#e0b02a', label: 'inaccuracy', icon: 'circle-alert' },
   mistake:    { color: '#e58f2a', label: 'mistake',    icon: 'triangle-alert' },
   miss:       { color: '#d9775b', label: 'miss',       icon: 'x' },

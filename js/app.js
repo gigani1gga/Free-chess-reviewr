@@ -1,7 +1,7 @@
 // Entry point: reads the form, loads the game, runs the engine, hands the review to the UI.
 import { loadGame } from './fetchgame.js';
 import { createPool, disposePool } from './engine.js';
-import { parseGame, analyseAll, buildReview, explore } from './analysis.js';
+import { parseGame, analyseAll, interrogate, buildReview, explore } from './analysis.js';
 import { initUI, showReview, hideReview } from './ui.js';
 import { keepEngineCached } from './offline.js';
 import { $ } from './util.js';
@@ -35,7 +35,14 @@ async function run() {
     const pos = await analyseAll(pool, game.fens, +$('depth').value, (done, total) =>
       status(`Analyzing position ${done} of ${total}…`, 5 + (95 * done) / total));
 
-    showReview(buildReview(game, pos));
+    // Second pass: ask Stockfish follow-up questions about the moves that decide the grades (sacrifices, moves outside its top
+    // lines). Optional, and never fatal: without the answers the review is graded from the first pass alone.
+    let probes = [];
+    if ($('extra').value === 'on') {
+      status('Asking Stockfish about the key moves…', 96);
+      probes = await interrogate(pool, game, pos, +$('depth').value, (done, total) => status(`Asking Stockfish about key move ${done} of ${total}…`, 96 + (4 * done) / total));
+    }
+    showReview(buildReview(game, pos, probes));
     $('engine').textContent = `Analysed by ${pool[0].name || 'Stockfish'} · depth ${$('depth').value} · ${pool.length > 1 ? pool.length + ' engines in parallel' : '1 engine'}`;
     status('Done.', 100);
   } catch (e) {

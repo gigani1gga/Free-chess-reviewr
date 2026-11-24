@@ -86,9 +86,7 @@ const buttons = [...html.matchAll(/<button\b([^>]*)>([\s\S]*?)<\/button>/g)];
 const unnamed = buttons.filter(([, a, inner]) => !/aria-label=|title=/.test(a) && !inner.replace(/<[^>]*>/g, '').trim());
 S.check('index.html: every <button> has text, an aria-label or a title (screen readers)', !unnamed.length, unnamed.map(m => m[0].slice(0, 80)).join(' | '), meta(['index.html'], { warn: true }));
 const inputs = [...html.matchAll(/<(input|textarea|select)\b([^>]*)>/g)].filter(([, , a]) => !/type="(hidden|checkbox|radio)"/.test(a));
-// A field inside <label>text<input></label> is labelled by that label (no for= needed).
-const inLabel = at => { const o = html.lastIndexOf('<label', at); return o >= 0 && html.lastIndexOf('</label>', at) < o; };
-const unlabeled = inputs.filter(m => { const a = m[2], id = (a.match(/\sid="([^"]+)"/) || [])[1]; return !(/aria-label=|aria-labelledby=/.test(a) || inLabel(m.index) || (id && new RegExp(`<label[^>]*for="${id}"`).test(html))); });
+const unlabeled = inputs.filter(([, , a]) => { const id = (a.match(/\sid="([^"]+)"/) || [])[1]; return !(/aria-label=|aria-labelledby=/.test(a) || (id && new RegExp(`<label[^>]*for="${id}"`).test(html))); });
 S.check('index.html: every form field has a label or aria-label', !unlabeled.length, unlabeled.map(m => m[0].slice(0, 70)).join(' | '), meta(['index.html'], { warn: true }));
 const leftovers = jsFiles.flatMap(f => stripComments(src[f]).split('\n').map((l, i) => [f, i + 1, l]).filter(([, , l]) => /\bdebugger\b|console\.log\(/.test(l)).map(([f, i]) => `js/${f}:${i}`));
 S.check('js: no debugger statements or console.log left behind', !leftovers.length, leftovers.join(', '), meta(jsFiles.map(f => 'js/' + f), { warn: true }));
